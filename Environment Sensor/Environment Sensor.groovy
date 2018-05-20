@@ -30,15 +30,16 @@ metadata {
                         ]
             }
         }
+        
         valueTile("humidity", "device.humidity", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
-            state "humidity", label: 'Humidity ${currentValue}%', defaultState: true
+            state "humidity", label: 'Humidity ${currentValue}${unit}', unit:"%", defaultState: true
         }
         valueTile("pressure", "device.pressure", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
-            state "pressure", label: 'Pressure ${currentValue}kPa', defaultState: true
+            state "pressure", label: 'Pressure ${currentValue}${unit}', unit:"kPa", defaultState: true
         }
         
         valueTile("illuminance", "device.illuminance", width:6, height: 2) {
-            state "luminosity", label:'${currentValue} ${unit}', unit:"lux"
+            state "illuminance", label: 'illuminance ${currentValue}${unit}', unit:"lux", defaultState: true
         }
         
         standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
