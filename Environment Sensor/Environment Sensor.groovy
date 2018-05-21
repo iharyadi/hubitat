@@ -201,7 +201,7 @@ private def parsePressureEvent(def descMap)
     result.name = "pressure"
     result.translatable = true
     float press = (float)zigbee.convertHexToInt(descMap.value) / 10.0
-    result.value = String.format("%.1f", press)
+    result.value = press.round(2)
     result.descriptionText = "{{ device.displayName }} pressure was $result.value"
     return result
 }
@@ -232,7 +232,7 @@ private def createIlluminanceEvent(int ilumm)
     }
     else
     {
-        result.value = String.format("%.2f", 10 ** (((double) ilumm / 10000.0) -1.0))
+        result.value = (10.0 ** (((double) ilumm / 10000.0) -1.0)).round(2)
     }
     result.descriptionText = "{{ device.displayName }} illuminance was $result.value"
     return result
