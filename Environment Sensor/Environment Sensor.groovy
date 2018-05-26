@@ -11,56 +11,10 @@ metadata {
         MapDiagAttributes().each{ k, v -> attribute "$v", "number" }
 
         fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05", manufacturer: "KMPCIL", model: "RES001BME280", deviceJoinName: "Environment Sensor"
-        }
+    }
 
     // simulator metadata
     simulator {
-    }
-
-    tiles(scale: 2) {
-        multiAttributeTile(name: "temperature", type: "generic", width: 6, height: 4, canChangeIcon: true) {
-            tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
-                attributeState "temperature", label: '${currentValue}°',
-                        backgroundColors: [
-                                [value: 31, color: "#153591"],
-                                [value: 44, color: "#1e9cbb"],
-                                [value: 59, color: "#90d2a7"],
-                                [value: 74, color: "#44b621"],
-                                [value: 84, color: "#f1d801"],
-                                [value: 95, color: "#d04e00"],
-                                [value: 96, color: "#bc2323"]
-                        ]
-            }
-        }
-        valueTile("humidity", "device.humidity", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
-            state "humidity", label: 'Humidity ${currentValue}%', unit:"%", defaultState: true
-        }
-        valueTile("pressure", "device.pressure", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
-            state "pressure", label: 'Pressure ${currentValue}kPa', unit:"kPa", defaultState: true
-        }
-        
-        valueTile("illuminance", "device.illuminance", width:6, height: 2) {
-            state "illuminance", label:'illuminance ${currentValue}Lux', unit:"lux", defaultState: true
-        }
-        
-        standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
-        }
-        
-        def tiles_detail = [];
-        tiles_detail.add("temperature")
-        tiles_detail.add("humidity")
-        tiles_detail.add("pressure")
-        tiles_detail.add("illuminance")
-        MapDiagAttributes().each{ k, v -> valueTile("$v", "device.$v", width: 2, height: 2, wordWrap: true) {
-                state "val", label: "$v \n"+'${currentValue}', defaultState: true
-            };
-            tiles_detail.add(v);
-        }
-        tiles_detail.add("refresh")
-                
-        main "temperature"        
-        details(tiles_detail)        
     }
     
     preferences {
