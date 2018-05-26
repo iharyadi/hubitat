@@ -16,7 +16,7 @@ metadata {
     // simulator metadata
     simulator {
     }
-    
+        
     preferences {
         input "tempOffset", "decimal", title: "Degrees", description: "Adjust temperature by this many degrees in Celcius",
               range: "*..*", displayDuringSetup: false
@@ -275,7 +275,7 @@ private String humidityStringPrefix()
     return "humidity:"
 }
 
-private def createAdjustedTempString(double val)
+private def AdjustTemp(double val)
 {
     if (tempOffset) {
         val = val + tempOffset
@@ -290,62 +290,49 @@ private def createAdjustedTempString(double val)
         state.tempCelcius = val
     }
     
-    return tempStringPrefix() + " " +val.toString()
+    return zigbee.convertToHexString((int)(val*100),4)
 }
 
-private def createAdjustedHumString(double val)
+private def AdjustHum(double val)
 {
-    double adj = 0.0
     if (humOffset) {
-        adj = humOffset
+        val = val + humOffset
     }
     
-    return humidityStringPrefix() + " " +(val + adj).toString() + "%"
+    return zigbee.convertToHexString((int)(val*100),4)
 }
 
-private def adjustTempValue(String description)
+private def adjustTempHumidityValue(String description)
 {
+    def descMap = zigbee.parseDescriptionAsMap(description) 
     
-    if(description.startsWith(tempStringPrefix()))
+    if(!description?.startsWith("read attr - raw:"))
     {
-        double d = Double.parseDouble(description.substring(tempStringPrefix().length()))
-        return createAdjustedTempString(d)
+        return description   
     }
-   
-    if(description.startsWith(humidityStringPrefix()))
-    {
-        double d = Double.parseDouble(description.substring(humidityStringPrefix().length()).replaceAll("[^\\d.]", ""))
-        return createAdjustedHumString(d)
-    }
-    
-    if(!description.startsWith("catchall:"))
-    {
-        return description
-    }
-    
-    def descMap = zigbee.parseDescriptionAsMap(description)
-    
+        
     if(descMap.attrInt != SENSOR_VALUE_ATTRIBUTE())
     {
         return description
     }
     
+    String newValue = descMap.value
+        
     if( descMap.clusterInt == TEMPERATURE_CLUSTER_ID() )
-    {
-        return createAdjustedTempString((double) zigbee.convertHexToInt(descMap.value) / 100.00)
+    {    
+        newValue = AdjustTemp((double) zigbee.convertHexToInt(descMap.value) / 100.00)
     }
     else if(descMap.clusterInt == HUMIDITY_CLUSTER_ID())
     {
-        return createAdjustedHumString((double) zigbee.convertHexToInt(descMap.value) / 100.00)
+        newValue = AdjustHum((double) zigbee.convertHexToInt(descMap.value) / 100.00)    
     }
-    
-    return description 
+    return description.replaceAll("value: [0-9A-F]{4}", "value: $newValue")    
  }
 
 // Parse incoming device messages to generate events
 def parse(String description) {
     
-    description = adjustTempValue(description)
+    description = adjustTempHumidityValue(description)
     log.debug "description is $description"
     
     def event = zigbee.getEvent(description)
@@ -386,8 +373,7 @@ def refresh() {
         zigbee.readAttribute(HUMIDITY_CLUSTER_ID(), SENSOR_VALUE_ATTRIBUTE()) + 
         zigbee.readAttribute(PRESSURE_CLUSTER_ID(), SENSOR_VALUE_ATTRIBUTE()) +
         zigbee.readAttribute(ILLUMINANCE_CLUSTER_ID(), SENSOR_VALUE_ATTRIBUTE()) 
-    MapDiagAttributes().each{ k, v -> cmds +=  zigbee.readAttribute(DIAG_CLUSTER_ID(), k) }
-   
+    MapDiagAttributes().each{ k, v -> cmds +=  zigbee.readAttribute(DIAG_CLUSTER_ID(), k) }  
     return cmds
 }
 
