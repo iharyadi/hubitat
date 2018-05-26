@@ -6,7 +6,9 @@ metadata {
         capability "RelativeHumidityMeasurement"
         capability "Illuminance Measurement"
         
-        attribute "pressure", "string"
+        attribute "pressure", "number"
+        
+        MapDiagAttributes().each{ k, v -> attribute "$v", "number" }
 
         fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05", manufacturer: "KMPCIL", model: "RES001BME280", deviceJoinName: "Environment Sensor"
         }
@@ -425,6 +427,7 @@ def on() {
 
 def refresh() {
     log.debug "Refresh"
+    state.lastRefreshAt = new Date(now()).format("yyyy-MM-dd HH:mm:ss", location.timeZone)
     def cmds = zigbee.readAttribute(TEMPERATURE_CLUSTER_ID(), SENSOR_VALUE_ATTRIBUTE()) +
         zigbee.readAttribute(HUMIDITY_CLUSTER_ID(), SENSOR_VALUE_ATTRIBUTE()) + 
         zigbee.readAttribute(PRESSURE_CLUSTER_ID(), SENSOR_VALUE_ATTRIBUTE()) +
