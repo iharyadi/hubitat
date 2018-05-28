@@ -12,7 +12,7 @@ metadata {
 
         fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05", manufacturer: "KMPCIL", model: "RES001BME280", deviceJoinName: "Environment Sensor"
     }
-
+    
     tiles(scale: 2) {
         multiAttributeTile(name: "temperature", type: "generic", width: 6, height: 4, canChangeIcon: true) {
             tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
@@ -58,7 +58,7 @@ metadata {
         main "temperature"        
         details(tiles_detail)        
     }
-    
+
     // simulator metadata
     simulator {
     }
@@ -74,8 +74,13 @@ metadata {
     }
     
     preferences {
-        input "humOffset", "decimal", title: "%", description: "Adjust humidity by this many %",
+        input "humOffset", "decimal", title: "Percent", description: "Adjust humidity by this many percent",
               range: "*..*", displayDuringSetup: false
+    }
+    
+    preferences {
+        input "illumAdj", "decimal", title: "Factor", description: "Multiply illuminance by this value",
+              range: "1..*", displayDuringSetup: false
     }
 }
 
@@ -225,6 +230,12 @@ private def createHumidityEvent(float humidity)
     result.value = humidity
     result.unit = "%"
     result.descriptionText = "{{ device.displayName }} humidity was $result.value"
+    
+    if (humOffset) {
+        result.value = result.value + humOffset
+    }
+    
+    result.value = result.value.round(2) 
     return result
 }
     
@@ -251,8 +262,16 @@ private def createIlluminanceEvent(int ilumm)
     }
     else
     {
-        result.value = (10.0 ** (((double) ilumm / 10000.0) -1.0)).round(2)
+        result.value = 10.0 ** (((double) ilumm / 10000.0) -1.0)
     }
+    
+    if(illumAdj)
+    {
+        result.value = result.value * illumAdj
+    }
+    
+    result.value = result.value.round(2)  
+    
     result.descriptionText = "{{ device.displayName }} illuminance was $result.value"
     return result
 }
@@ -260,17 +279,6 @@ private def createIlluminanceEvent(int ilumm)
 private String ilummStringPrefix()
 {
     return "illuminance: "
-}
-
-private def parseIlluminanceEventFromString(String description)
-{
-    if(!description.startsWith(ilummStringPrefix()))
-    {
-        return null
-    }
-    int ilumm = Integer.parseInt(description.substring(ilummStringPrefix().length()))
-    
-    return createIlluminanceEvent(ilumm)
 }
 
 def parseIlluminanceEvent(def descMap)
@@ -321,7 +329,7 @@ private String humidityStringPrefix()
     return "humidity:"
 }
 
-private def AdjustTemp(double val)
+private def adjustTemp(double val)
 {
     if (tempOffset) {
         val = val + tempOffset
@@ -339,24 +347,15 @@ private def AdjustTemp(double val)
     return zigbee.convertToHexString((int)(val*100),4)
 }
 
-private def AdjustHum(double val)
-{
-    if (humOffset) {
-        val = val + humOffset
-    }
-    
-    return zigbee.convertToHexString((int)(val*100),4)
-}
-
-private def adjustTempHumidityValue(String description)
-{
-    def descMap = zigbee.parseDescriptionAsMap(description) 
-    
+private def adjustTempValue(String description)
+{    
     if(!description?.startsWith("read attr - raw:"))
     {
         return description   
     }
-        
+    
+    def descMap = zigbee.parseDescriptionAsMap(description) 
+
     if(descMap.attrInt != SENSOR_VALUE_ATTRIBUTE())
     {
         return description
@@ -366,34 +365,15 @@ private def adjustTempHumidityValue(String description)
         
     if( descMap.clusterInt == TEMPERATURE_CLUSTER_ID() )
     {    
-        newValue = AdjustTemp((double) zigbee.convertHexToInt(descMap.value) / 100.00)
+        newValue = adjustTemp((double) zigbee.convertHexToInt(descMap.value) / 100.00)
     }
-    else if(descMap.clusterInt == HUMIDITY_CLUSTER_ID())
-    {
-        newValue = AdjustHum((double) zigbee.convertHexToInt(descMap.value) / 100.00)    
-    }
+    
     return description.replaceAll("value: [0-9A-F]{4}", "value: $newValue")    
  }
 
 // Parse incoming device messages to generate events
 def parse(String description) {
-    
-    description = adjustTempHumidityValue(description)
     log.debug "description is $description"
-    
-    def event = zigbee.getEvent(description)
-    if(event)
-    {
-        sendEvent(event)
-        return
-    }
-    
-    event = parseIlluminanceEventFromString(description)
-    if(event)
-    {
-        sendEvent(event)
-        return
-    }
     
     event = parseCustomEvent(description)
     if(event)
@@ -401,6 +381,15 @@ def parse(String description) {
         sendEvent(event)
         return
     }
+    
+    description = adjustTempValue(description)
+    def event = zigbee.getEvent(description)
+    if(event)
+    {
+        sendEvent(event)
+        return
+    }
+    
     log.warn "DID NOT PARSE MESSAGE : $description"
 }
 
@@ -435,12 +424,12 @@ def configure() {
 }
 
 def updated() {
-    log.trace "updated():"
+    log.trace "Updated()"
 
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
         state.remove("tempCelcius")
-        return response(refresh())
+        return refresh()
     }
     else {
         log.trace "updated(): Ran within last 2 seconds so aborting."
