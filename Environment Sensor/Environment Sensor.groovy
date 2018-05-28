@@ -79,8 +79,8 @@ metadata {
     }
     
     preferences {
-        input "illumAdj", "decimal", title: "Factor", description: "Adjust illuminace base on formula ilumm / Factor", 
-            range: "0..*", displayDuringSetup: false
+        input "illumAdj", "decimal", title: "Factor", description: "Adjust illuminace base on formula illum / Factor", 
+            range: "1..*", displayDuringSetup: false
     }
 }
 
