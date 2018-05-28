@@ -79,8 +79,8 @@ metadata {
     }
     
     preferences {
-        input "illumAdj", "decimal", title: "Factor", description: "Multiply illuminance by this value",
-              range: "1..*", displayDuringSetup: false
+        input "illumAdj", "decimal", title: "Factor", description: "Adjust illuminace base on formula ilumm / Factor", 
+            range: "0..*", displayDuringSetup: false
     }
 }
 
@@ -250,27 +250,30 @@ private def parseHumidityEvent(def descMap)
     return createHumidityEvent(humidity)
 }
 
-private def createIlluminanceEvent(int ilumm)
+private def createIlluminanceEvent(int illum)
 {
     def result = [:]
     result.name = "illuminance"
     result.translatable = true
     result.unit = "Lux"
-    if(ilumm == 0)
+    
+    if(!illumAdj ||  illumAdj < 1.0)
     {
-        result.value = 0.0
+        if(ilumm == 0)
+        {
+            result.value = 0.0
+        }
+        else
+        {
+            result.value = 10.0 ** (((double) illum / 10000.0) -1.0)
+        }
+        
+    	result.value = result.value.round(2)  
     }
     else
     {
-        result.value = 10.0 ** (((double) ilumm / 10000.0) -1.0)
+        result.value = ((double)illum / illumAdj).toInteger()
     }
-    
-    if(illumAdj)
-    {
-        result.value = result.value * illumAdj
-    }
-    
-    result.value = result.value.round(2)  
     
     result.descriptionText = "{{ device.displayName }} illuminance was $result.value"
     return result
