@@ -5,10 +5,9 @@ metadata {
         capability "Temperature Measurement"
         capability "RelativeHumidityMeasurement"
         capability "Illuminance Measurement"
+        capability "PressureMeasurement"
         capability "Sensor"
-        
-        attribute "pressure", "number"
-        
+                
         MapDiagAttributes().each{ k, v -> attribute "$v", "number" }
 
         fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05", manufacturer: "KMPCIL", model: "RES001BME280", deviceJoinName: "Environment Sensor"
@@ -32,7 +31,7 @@ metadata {
         valueTile("humidity", "device.humidity", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
             state "humidity", label: 'Humidity ${currentValue}${unit}', unit:"%", defaultState: true
         }
-        valueTile("pressure", "device.pressure", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
+        valueTile("pressure", "device.pressureMeasurement", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
             state "pressure", label: 'Pressure ${currentValue}${unit}', unit:"kPa", defaultState: true
         }
         
@@ -205,11 +204,11 @@ private def parseDiagnosticEvent(def descMap)
 private def createPressureEvent(float pressure)
 {
     def result = [:]
-    result.name = "pressure"
+    result.name = "pressureMeasurement"
     result.translatable = true
     result.unit = "kPa"
     result.value = pressure.round(1)
-    result.descriptionText = "{{ device.displayName }} pressure was $result.value"
+    result.descriptionText = "{{ device.displayName }} pressureMeasurement was $result.value"
     return result
 }
 
