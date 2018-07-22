@@ -359,17 +359,17 @@ private def adjustTempValue(String description)
     
     def descMap = zigbee.parseDescriptionAsMap(description) 
 
+    if( descMap.clusterInt != TEMPERATURE_CLUSTER_ID() )
+    {  
+        return description
+    }
+
     if(descMap.attrInt != SENSOR_VALUE_ATTRIBUTE())
     {
         return description
     }
     
-    String newValue = descMap.value
-        
-    if( descMap.clusterInt == TEMPERATURE_CLUSTER_ID() )
-    {    
-        newValue = adjustTemp((double) zigbee.convertHexToInt(descMap.value) / 100.00)
-    }
+    String newValue = adjustTemp((double) zigbee.convertHexToInt(descMap.value) / 100.00)
     
     return description.replaceAll("value: [0-9A-F]{4}", "value: $newValue")    
  }
