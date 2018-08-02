@@ -64,7 +64,7 @@ metadata {
     }
         
     preferences {
-        input "tempOffset", "decimal", title: "Degrees", description: "Adjust temperature by this many degrees in Celcius",
+        input "tempOffset", "decimal", title: "Degrees", description: "Adjust temperature by this many degrees in Celsius",
               range: "*..*", displayDuringSetup: false
     }
     
@@ -340,11 +340,11 @@ private def adjustTemp(double val)
         
     if(tempFilter)
     {
-    	if(state.tempCelcius)
+    	if(state.tempCelsius)
         {
-    		val = tempFilter*val + (1.0-tempFilter)*state.tempCelcius
+    		val = tempFilter*val + (1.0-tempFilter)*state.tempCelsius
         }
-        state.tempCelcius = val
+        state.tempCelsius = val
     }
     
     return zigbee.convertToHexString((int)(val*100),4)
@@ -417,7 +417,7 @@ def refresh() {
 
 def configure() {
     log.debug "Configuring Reporting and Bindings."
-    state.remove("tempCelcius")
+    state.remove("tempCelsius")
     List cmds = zigbee.temperatureConfig(5,300)
     cmds = cmds + zigbee.configureReporting(HUMIDITY_CLUSTER_ID(), SENSOR_VALUE_ATTRIBUTE(), DataType.UINT16, 5, 300, 100)
     cmds = cmds + zigbee.configureReporting(PRESSURE_CLUSTER_ID(), SENSOR_VALUE_ATTRIBUTE(), DataType.UINT16, 5, 300, 2)
@@ -431,7 +431,7 @@ def updated() {
 
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
-        state.remove("tempCelcius")
+        state.remove("tempCelsius")
         return refresh()
     }
     else {
