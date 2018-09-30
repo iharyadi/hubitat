@@ -103,7 +103,17 @@ metadata {
            	input "childBinaryOutput", "text", title: "Binary Output Handler", description: "Binary Output Child Handler",
               displayDuringSetup: false
         }
+        
+        section("Debug Messages")
+        {
+        	input name: "logEnabled", defaultValue: "true", type: "bool", title: "Enable info message logging", description: ""
+        }
     }
+}
+
+private def Log(message) {
+	if (logEnabled)
+		log.info "${message}"
 }
 
 private def NUMBER_OF_RESETS_ID()
@@ -542,7 +552,7 @@ private def adjustTempValue(String description)
 
 // Parse incoming device messages to generate events
 def parse(String description) {
-    log.debug "description is $description"
+    Log("description is $description")
     
     
     event = parseCustomEvent(description)
@@ -560,7 +570,7 @@ def parse(String description) {
         return
     }
     
-    log.warn "DID NOT PARSE MESSAGE : $description"
+    Log("DID NOT PARSE MESSAGE : $description")
 }
 
 def off() {
@@ -569,7 +579,6 @@ def off() {
 
 def on() {
     zigbee.On()
-    //zigbee.command(0x1001,0x17,"0102030405")
 }
 
 def sendCommandPDelay(data)
@@ -702,7 +711,7 @@ private def refreshDiagnostic()
 }
 
 def refresh() {
-    log.debug "Refresh"
+    Log ("Refresh")
     state.lastRefreshAt = new Date(now()).format("yyyy-MM-dd HH:mm:ss", location.timeZone)
      
     return refreshOnBoardSensor() + 
@@ -728,7 +737,7 @@ private def reportTEMT6000Parameters()
 
 def configure() {
 
-    log.debug "Configuring Reporting and Bindings."
+    Log("Configuring Reporting and Bindings.")
     state.remove("tempCelcius")
     
     def mapConfigure = ["RES001":reportBME280Parameters()+reportTEMT6000Parameters(),
@@ -801,7 +810,7 @@ private updateExpansionSensorSetting()
 }
 
 def updated() {
-    log.debug "updated():"
+    Log("updated():")
 
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
@@ -809,6 +818,6 @@ def updated() {
         return updateExpansionSensorSetting() + refresh()
     }
     else {
-        log.trace "updated(): Ran within last 2 seconds so aborting."
+        Log("updated(): Ran within last 2 seconds so aborting.")
     }
 }
