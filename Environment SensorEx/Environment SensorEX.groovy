@@ -73,40 +73,41 @@ metadata {
     
     	section("Environment Sensor")
         {
-            input "tempOffset", "decimal", title: "Degrees", description: "Adjust temperature by this many degrees in Celcius",
+            input name:"tempOffset", type:"decimal", title: "Degrees", description: "Adjust temperature by this many degrees in Celcius",
                   range: "*..*", displayDuringSetup: false
-            input "tempFilter", "decimal", title: "Coeficient", description: "Temperature filter between 0.0 and 1.0",
+            input name:"tempFilter", type:"decimal", title: "Coeficient", description: "Temperature filter between 0.0 and 1.0",
                   range: "0..1", displayDuringSetup: false
-            input "humOffset", "decimal", title: "Percent", description: "Adjust humidity by this many percent",
+            input name:"humOffset", type:"decimal", title: "Percent", description: "Adjust humidity by this many percent",
                   range: "*..*", displayDuringSetup: false
-            input "illumAdj", "decimal", title: "Factor", description: "Adjust illuminace base on formula illum / Factor", 
+            input name:"illumAdj", type:"decimal", title: "Factor", description: "Adjust illuminace base on formula illum / Factor", 
                 range: "1..*", displayDuringSetup: false
     	}
         
         section("Expansion Sensor")
         {
-        	input "enableAnalogInput", "boolean", title: "Analog Input", description: "Enable Analog Input",
-              defaultValue: "false", displayDuringSetup: false 
+        	input name:"enableAnalogInput", type: "bool", title: "Analog Input", description: "Enable Analog Input",
+                defaultValue: "false", displayDuringSetup: false 
             
-            input "childAnalogInput", "text", title: "Analog Input Handler", description: "Analog Input Child Handler",
-              displayDuringSetup: false
+            input name:"childAnalogInput", type:"text", title: "Analog Input Handler", description: "Analog Input Child Handler",
+                displayDuringSetup: false
               
-            input "enableBinaryInput", "boolean", title: "Binary Input", description: "Enable Binary Input",
-              defaultValue: "false", displayDuringSetup: false
+            input name:"enableBinaryInput", type: "bool", title: "Binary Input", description: "Enable Binary Input",
+                defaultValue: "false", displayDuringSetup: false
             
-            input "childBinaryInput", "string", title: "Binary Input Handler", description: "Binary Input Device Handler",
-              displayDuringSetup: false
+            input name:"childBinaryInput", type:"string", title: "Binary Input Handler", description: "Binary Input Device Handler",
+                displayDuringSetup: false
               
-            input "enableBinaryOutput", "boolean", title: "Binary Output", description: "Enable Binary Output",
-              defaultValue: "false", displayDuringSetup: false  
+            input name:"enableBinaryOutput", type: "bool", title: "Binary Output", description: "Enable Binary Output",
+                defaultValue: "false", displayDuringSetup: false  
             
-           	input "childBinaryOutput", "text", title: "Binary Output Handler", description: "Binary Output Child Handler",
-              displayDuringSetup: false
+           	input name:"childBinaryOutput", type:"text", title: "Binary Output Handler", description: "Binary Output Child Handler",
+                displayDuringSetup: false
         }
         
         section("Debug Messages")
         {
-        	input name: "logEnabled", defaultValue: "true", type: "bool", title: "Enable info message logging", description: ""
+        	input name: "logEnabled", defaultValue: "true", type: "bool", title: "Enable info message logging", description: "", 
+                displayDuringSetup: false
         }
     }
 }
