@@ -2,6 +2,7 @@ metadata {
     definition (name: "Environment Sensor EX", namespace: "iharyadi", author: "iharyadi", ocfDeviceType: "oic.r.temperature") {
         capability "Configuration"
         capability "Refresh"
+        capability "Battery"
         capability "Temperature Measurement"
         capability "RelativeHumidityMeasurement"
         capability "Illuminance Measurement"
@@ -16,6 +17,7 @@ metadata {
         attribute "AnalogInput", "number"
 
     	fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES002", deviceJoinName: "Environment Sensor"
     	fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES003", deviceJoinName: "Environment Sensor"
     	fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES004", deviceJoinName: "Environment Sensor"
@@ -162,6 +164,11 @@ private def LAST_RSSI_ID()
     return 0x011D;
 }
 
+private def BATT_REMINING_ID()
+{
+    return 0x0021;
+}
+
 private def DIAG_CLUSTER_ID()
 {
     return 0x0B05;
@@ -185,6 +192,11 @@ private def HUMIDITY_CLUSTER_ID()
 private def ILLUMINANCE_CLUSTER_ID()
 {
     return 0x0400;
+}
+
+private def POWER_CLUSTER_ID()
+{
+    return 0x0001;
 }
 
 private def SENSOR_VALUE_ATTRIBUTE()
@@ -237,7 +249,7 @@ private def parseDiagnosticEvent(def descMap)
 private def createPressureEvent(float pressure)
 {
     def result = [:]
-    result.name = "pressureMeasurement"
+    result.name = "pressure"
     result.translatable = true
     result.unit = "kPa"
     result.value = pressure.round(1)
@@ -292,16 +304,13 @@ private def createIlluminanceEvent(int illum)
     
     if(!illumAdj ||  illumAdj < 1.0)
     {
-        if(ilumm == 0)
+        double val = 0.0
+        if(ilumm != 0)
         {
-            result.value = 0.0
-        }
-        else
-        {
-            result.value = 10.0 ** (((double) illum / 10000.0) -1.0)
+            val = 10.0 ** (((double) illum / 10000.0) -1.0)
         }
         
-    	result.value = result.value.round(2)  
+    	result.value = val.round(2)  
     }
     else
     {
@@ -457,6 +466,31 @@ private def reflectToChild(String childtype, String description)
     childDevice.sendEvent(childEvent)    
 }
 
+private def createBattEvent(int val)
+{    
+    def result = [:]
+    result.name = "battery"
+    result.translatable = true
+    result.value = val/2
+	result.unit = "%"
+    result.descriptionText = "${device.displayName} ${result.name} is ${result.value}"  
+    return result
+}
+
+def parseBattEvent(def descMap)
+{       
+    def value = descMap.attrInt?.equals(BATT_REMINING_ID()) ? 
+        descMap.value : 
+    	null
+    
+    if(!value)
+    {
+        return null
+    }
+           
+    return createBattEvent(zigbee.convertHexToInt(value))
+}
+
 def parseCustomEvent(String description)
 {
     def event = null
@@ -494,6 +528,10 @@ def parseCustomEvent(String description)
         {
         	event = parseBinaryOutputEvent(descMap)
             reflectToChild(childBinaryOutput,description)
+        }
+        else if(descMap?.clusterInt == POWER_CLUSTER_ID())
+        {
+        	event = parseBattEvent(descMap)
         }
    }
    return event
@@ -711,13 +749,19 @@ private def refreshDiagnostic()
     return cmds
 }
 
+private def refreshBatt()
+{
+	return zigbee.readAttribute(POWER_CLUSTER_ID(), BATT_REMINING_ID()) 
+}
+
 def refresh() {
     Log ("Refresh")
     state.lastRefreshAt = new Date(now()).format("yyyy-MM-dd HH:mm:ss", location.timeZone)
      
     return refreshOnBoardSensor() + 
     	refreshExpansionSensor() + 
-        refreshDiagnostic()    
+        refreshDiagnostic() +
+        refreshBatt()
 }
 
 private def reportBME280Parameters()
@@ -752,6 +796,7 @@ def configure() {
     	cmds = cmds + zigbee.configureReporting(it[0], SENSOR_VALUE_ATTRIBUTE(), it[1],it[2],it[3],it[4])
     }
     
+    cmds += zigbee.configureReporting(POWER_CLUSTER_ID(), BATT_REMINING_ID(), DataType.UINT8,5,307,2)
     cmds = cmds + refresh();
  
     return cmds
