@@ -299,22 +299,23 @@ def parseIlluminanceEvent(def descMap)
 def parseCustomEvent(String description)
 {
     def event = null
-    def descMap = zigbee.parseDescriptionAsMap(description)
+    
     if(description?.startsWith("read attr - raw:"))
     {
-        if(descMap?.clusterInt == DIAG_CLUSTER_ID())
+		def descMap = zigbee.parseDescriptionAsMap(description)
+        if(descMap?.cluster?.equals(zigbee.convertToHexString(DIAG_CLUSTER_ID(),4)))
         {
             event = parseDiagnosticEvent(descMap);
         }
-        else if(descMap?.clusterInt == PRESSURE_CLUSTER_ID())
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(PRESSURE_CLUSTER_ID(),4)))
         {
             event = parsePressureEvent(descMap);
         }
-        else if(descMap?.clusterInt == HUMIDITY_CLUSTER_ID())
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(HUMIDITY_CLUSTER_ID(),4)))
         {
          	event = parseHumidityEvent(descMap); 
         }
-        else if(descMap?.clusterInt == ILLUMINANCE_CLUSTER_ID())
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(ILLUMINANCE_CLUSTER_ID(),4)))
         {
          	event = parseIlluminanceEvent(descMap); 
         }
@@ -347,7 +348,9 @@ private def adjustTemp(double val)
         state.tempCelsius = val
     }
     
-    return zigbee.convertToHexString((int)(val*100),4)
+    String res = zigbee.convertToHexString((int)(val*100),4)
+   	
+	return "${res.substring(2,4)}${res.substring(0,2)}"
 }
 
 private def adjustTempValue(String description)
@@ -359,12 +362,12 @@ private def adjustTempValue(String description)
     
     def descMap = zigbee.parseDescriptionAsMap(description) 
 
-    if( descMap.clusterInt != TEMPERATURE_CLUSTER_ID() )
+    if( !(descMap?.cluster?.equals(zigbee.convertToHexString(TEMPERATURE_CLUSTER_ID(),4))))
     {  
         return description
     }
 
-    if(descMap.attrInt != SENSOR_VALUE_ATTRIBUTE())
+    if( !(descMap?.attrId?.equals(zigbee.convertToHexString(SENSOR_VALUE_ATTRIBUTE(),4))))
     {
         return description
     }

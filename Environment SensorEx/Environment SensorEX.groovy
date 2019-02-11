@@ -199,6 +199,21 @@ private def POWER_CLUSTER_ID()
     return 0x0001;
 }
 
+private def BINARY_INPUT_CLUSTER_ID()
+{
+    return 0x000F;
+}
+
+private def BINARY_OUTPUT_CLUSTER_ID()
+{
+    return 0x0010;
+}
+
+private def ANALOG_INPUT_CLUSTER_ID()
+{
+    return 0x000C;
+}
+
 private def SENSOR_VALUE_ATTRIBUTE()
 {
     return 0x0000;
@@ -237,7 +252,7 @@ private def createDiagnosticEvent( String attr_name, type, value )
 
 private def parseDiagnosticEvent(def descMap)
 {       
-    def attr_name = MapDiagAttributes()[descMap.attrInt];
+    def attr_name = MapDiagAttributes()[zigbee.convertHexToInt(descMap.attrId)];
     if(!attr_name)
     {
         return null;
@@ -351,9 +366,9 @@ private def createBinaryOutputEvent(boolean val)
 
 def parseBinaryOutputEvent(def descMap)
 {     
-    def present_value = descMap.attrInt?.equals(0x0055)?
+    def present_value = descMap.attrId?.equals("0055")?
     	descMap.value:
-    	descMap.additionalAttrs?.find { item -> item.attrInt?.equals(0x0055)}?.value
+    	descMap.additionalAttrs?.find { item -> item.attrId?.equals("0055")}?.value
     
     if(!present_value)
     {
@@ -386,18 +401,18 @@ def parseAnalogInputEvent(def descMap)
     def adc;
     def vdd;
     
-    if(descMap.attrInt?.equals(0x0103))
+    if(descMap.attrId?.equals("0103"))
     {
     	adc = descMap.value
     }
-    else if (descMap.attrInt?.equals(0x0104))
+    else if (descMap.attrId?.equals("0104"))
     {
         vdd  = descMap.value
     }
     else
     {   
-        adc = descMap.additionalAttrs?.find { item -> item.attrInt?.equals(0x0103)}.value
-        vdd = descMap.additionalAttrs?.find { item -> item.attrInt?.equals(0x0104)}.value        
+        adc = descMap.additionalAttrs?.find { item -> item.attrId?.equals("0103")}.value
+        vdd = descMap.additionalAttrs?.find { item -> item.attrId?.equals("0104")}.value        
 	}
     
     if(vdd)
@@ -431,9 +446,9 @@ private def createBinaryInputEvent(boolean val)
 
 def parseBinaryInputEvent(def descMap)
 {       
-    def value = descMap.attrInt?.equals(0x0055) ? 
+    def value = descMap.attrId?.equals("0055") ? 
         descMap.value : 
-    	descMap.additionalAttrs?.find { item -> item.attrInt?.equals(0x0055)}.value
+    	descMap.additionalAttrs?.find { item -> item.attrId?.equals("0055")}.value
     
     if(!value)
     {
@@ -479,7 +494,7 @@ private def createBattEvent(int val)
 
 def parseBattEvent(def descMap)
 {       
-    def value = descMap.attrInt?.equals(BATT_REMINING_ID()) ? 
+    def value = descMap?.attrId?.equals(zigbee.convertToHexString(BATT_REMINING_ID(),4)) ? 
         descMap.value : 
     	null
     
@@ -498,38 +513,38 @@ def parseCustomEvent(String description)
     if(description?.startsWith("read attr - raw:"))
     {
         def descMap = zigbee.parseDescriptionAsMap(description)
-        if(descMap?.clusterInt == DIAG_CLUSTER_ID())
+        if(descMap?.cluster?.equals(zigbee.convertToHexString(DIAG_CLUSTER_ID(),4)))
         {
             event = parseDiagnosticEvent(descMap);
         }
-        else if(descMap?.clusterInt == PRESSURE_CLUSTER_ID())
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(PRESSURE_CLUSTER_ID(),4)))
         {
             event = parsePressureEvent(descMap);
         }
-        else if(descMap?.clusterInt == HUMIDITY_CLUSTER_ID())
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(HUMIDITY_CLUSTER_ID(),4)))
         {
          	event = parseHumidityEvent(descMap); 
         }
-        else if(descMap?.clusterInt == ILLUMINANCE_CLUSTER_ID())
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(ILLUMINANCE_CLUSTER_ID(),4)))
         {
          	event = parseIlluminanceEvent(descMap); 
         }
-        else if(descMap?.clusterInt == 0x000F)
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(BINARY_INPUT_CLUSTER_ID(),4)))
         {
             event = parseBinaryInputEvent(descMap);
             reflectToChild(childBinaryInput,description)
         }
-        else if(descMap?.clusterInt == 0x000C)
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(ANALOG_INPUT_CLUSTER_ID(),4)))
         {
         	event = parseAnalogInputEvent(descMap)
             reflectToChild(childAnalogInput,description)
         }
-        else if(descMap?.clusterInt == 0x0010)
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(BINARY_OUTPUT_CLUSTER_ID(),4)))
         {
         	event = parseBinaryOutputEvent(descMap)
             reflectToChild(childBinaryOutput,description)
         }
-        else if(descMap?.clusterInt == POWER_CLUSTER_ID())
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(POWER_CLUSTER_ID(),4)))
         {
         	event = parseBattEvent(descMap)
         }
@@ -548,7 +563,7 @@ private String humidityStringPrefix()
 }
 
 private def adjustTemp(double val)
-{
+{	
     if (tempOffset) {
         val = val + tempOffset
     }
@@ -562,7 +577,10 @@ private def adjustTemp(double val)
         state.tempCelcius = val
     }
     
-    return zigbee.convertToHexString((int)(val*100),4)
+	
+    String res = zigbee.convertToHexString((int)(val*100),4)
+   	
+	return "${res.substring(2,4)}${res.substring(0,2)}"
 }
 
 private def adjustTempValue(String description)
@@ -574,20 +592,20 @@ private def adjustTempValue(String description)
     
     def descMap = zigbee.parseDescriptionAsMap(description) 
     
-    if( descMap.clusterInt != TEMPERATURE_CLUSTER_ID() )
+    if( !(descMap?.cluster?.equals(zigbee.convertToHexString(TEMPERATURE_CLUSTER_ID(),4))))
     {  
         return description
     }
 
-    if(descMap.attrInt != SENSOR_VALUE_ATTRIBUTE())
+    if( !(descMap?.attrId?.equals(zigbee.convertToHexString(SENSOR_VALUE_ATTRIBUTE(),4))))
     {
         return description
     }
-    
+		
     String newValue = adjustTemp((double) zigbee.convertHexToInt(descMap.value) / 100.00)
-    
-    return description.replaceAll("value: [0-9A-F]{4}", "value: $newValue")    
- }
+
+	return description.replaceAll("value: [0-9A-F]{4}", "value: $newValue")   
+}
 
 // Parse incoming device messages to generate events
 def parse(String description) {
@@ -776,7 +794,7 @@ private def reportBME280Parameters()
 private def reportTEMT6000Parameters()
 {
     def reportParameters = [];
-    reportParameters = reportParameters + [[ILLUMINANCE_CLUSTER_ID(),DataType.UINT16, 5, 303, 500]]
+    reportParameters = reportParameters + [[ILLUMINANCE_CLUSTER_ID(),DataType.UINT16, 5, 307, 500]]
     return reportParameters
 }
 
@@ -796,7 +814,7 @@ def configure() {
     	cmds = cmds + zigbee.configureReporting(it[0], SENSOR_VALUE_ATTRIBUTE(), it[1],it[2],it[3],it[4])
     }
     
-    cmds += zigbee.configureReporting(POWER_CLUSTER_ID(), BATT_REMINING_ID(), DataType.UINT8,5,307,2)
+    cmds += zigbee.configureReporting(POWER_CLUSTER_ID(), BATT_REMINING_ID(), DataType.UINT8,20,307,2)
     cmds = cmds + refresh();
  
     return cmds
