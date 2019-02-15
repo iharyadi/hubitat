@@ -9,9 +9,9 @@ metadata {
         capability "Configuration"
         capability "Refresh"
         capability "Temperature Measurement"
-        capability "RelativeHumidityMeasurement"
+        capability "RelativeHumidity Measurement"
         capability "Illuminance Measurement"
-        capability "PressureMeasurement"
+        capability "Pressure Measurement"
         capability "Sensor"
                 
         MapDiagAttributes().each{ k, v -> attribute "$v", "number" }
@@ -37,7 +37,7 @@ metadata {
         valueTile("humidity", "device.humidity", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
             state "humidity", label: 'Humidity ${currentValue}${unit}', unit:"%", defaultState: true
         }
-        valueTile("pressure", "device.pressureMeasurement", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
+        valueTile("pressure", "device.pressure", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
             state "pressure", label: 'Pressure ${currentValue}${unit}', unit:"kPa", defaultState: true
         }
         
@@ -88,6 +88,15 @@ metadata {
         input "illumAdj", "decimal", title: "Factor", description: "Adjust illuminace base on formula illum / Factor", 
             range: "1..*", displayDuringSetup: false
     }
+	
+    preferences {
+            input name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: true
+	}
+}
+
+def logsOff(){
+    log.warn "debug logging disabled..."
+    device.updateSetting("logEnable",[value:"false",type:"bool"])
 }
 
 private def NUMBER_OF_RESETS_ID()
@@ -210,11 +219,11 @@ private def parseDiagnosticEvent(def descMap)
 private def createPressureEvent(float pressure)
 {
     def result = [:]
-    result.name = "pressureMeasurement"
+    result.name = "pressure"
     result.translatable = true
     result.unit = "kPa"
     result.value = pressure.round(1)
-    result.descriptionText = "{{ device.displayName }} pressureMeasurement was $result.value"
+    result.descriptionText = "{{ device.displayName }} pressure was $result.value"
     return result
 }
 
@@ -385,7 +394,7 @@ private def adjustTempValue(String description)
 
 // Parse incoming device messages to generate events
 def parse(String description) {
-    log.debug "description is $description"
+    if (logEnable) log.debug "description is $description"
     
     event = parseCustomEvent(description)
     if(event)
@@ -446,4 +455,6 @@ def updated() {
     else {
         log.trace "updated(): Ran within last 2 seconds so aborting."
     }
+
+    if (logEnable) runIn(1800,logsOff)
 }
