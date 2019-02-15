@@ -1,3 +1,9 @@
+/******************************************************************************************************
+*
+*  GitHub import link:  
+*  https://raw.githubusercontent.com/iharyadi/hubitat/master/Environment%20Sensor/Environment%20Sensor.groovy
+*
+*******************************************************************************************************/
 metadata {
     definition (name: "Environment Sensor", namespace: "iharyadi", author: "iharyadi", ocfDeviceType: "oic.r.temperature") {
         capability "Configuration"
