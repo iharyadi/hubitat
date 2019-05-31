@@ -26,31 +26,27 @@ preferences {
 
 def processGetScore(response, data) {
     
-    def jsonSlurper = new JsonSlurper()
+    if(response.hasError())
+    {
+        runIn(300, GetScore)
+        return;
+    }
     
-    def object = jsonSlurper.parseText(response.data)
+    def object = null
+    try {
+        object = response.json
+    } 
+    catch (e) 
+    {
+    }
+    
+    if(!object)
+    {
+        runIn(300, GetScore)
+        return;	
+    }
     
     def favorite = object.games?.find {  item -> item.vTeam.triCode.equals(teamFavorite) || item.hTeam.triCode.equals(teamFavorite) }
-    
-    state.favorite = favorite;
-    
-    if(favorite)
-    {
-        
-        if(favorite.isGameActivated)
-        {
-            runIn(60, GetScore)
-            
-        }
-        else
-        {
-            runIn(300, GetScore)
-        }
-    }
-    else
-    {
-        runIn(3600, GetScore)
-    }
     
     if(displayDevice)
     {
@@ -75,6 +71,27 @@ def processGetScore(response, data) {
         }
     }
     
+    state.favorite = favorite;
+    
+    if(favorite)
+    {
+        if(favorite.isGameActivated)
+        {
+            runIn(60, GetScore)
+        }
+        else if (favorite.statusNum != 3)
+        {
+            runIn(300, GetScore)
+        }
+        else
+        {
+            runIn(3600, GetScore)
+        }
+    }
+    else
+    {
+        runIn(3600, GetScore)
+    }
 }
 
 String GetFavoriteTeamName()
@@ -84,7 +101,7 @@ String GetFavoriteTeamName()
 
 int GameStatus()
 {
-	return state.favorite.statusNum
+    return state.favorite.statusNum
 }
 
 boolean IsGameAvailableToday()
@@ -180,14 +197,13 @@ def GetScore()
     String url = "http://data.nba.net/10s/prod/v1/"+today.format("yyyyMMdd")+"/scoreboard.json"
     def requestParams =
     [
-uri:  url,
-requestContentType: "application/json",
-contentType: "application/json"
+        uri:  url,
+        requestContentType: "application/json",
+        contentType: "application/json"
     ]
     
     asynchttpGet(processGetScore,requestParams)
 }
-
 
 def installed() {
     runIn(5, GetScore)
