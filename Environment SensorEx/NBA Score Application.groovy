@@ -58,7 +58,7 @@ def processGetScore(response, data) {
         {
             displayDevice.sendScore(teamFavorite+":No Game")
         }
-        else if( !favorite.isGameActivated)
+        else if( !favorite.isGameActivated && favorite.statusNum != 3)
         {
             SimpleDateFormat utcFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
             utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
@@ -80,6 +80,11 @@ def processGetScore(response, data) {
 String GetFavoriteTeamName()
 {
     return teamFavorite
+}
+
+int GameStatus()
+{
+	return state.favorite.statusNum
 }
 
 boolean IsGameAvailableToday()
