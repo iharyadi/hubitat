@@ -71,7 +71,7 @@ def processGetScore(response, data) {
             displayDevice.sendScore(favorite.vTeam.triCode + ":" +
             favorite.vTeam.score   + " " +
             favorite.hTeam.triCode + ":" +
-            favorite.vTeam.score)
+            favorite.hTeam.score)
         }
     }
     
