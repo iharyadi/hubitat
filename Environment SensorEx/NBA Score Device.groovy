@@ -3,14 +3,14 @@ metadata {
         capability "Sensor"
     }
     
-	capability "Sensor"
-	attribute "ScoreBoard", "string"
-	command "sendScore", ["string"]
-	
+    capability "Sensor"
+    attribute "ScoreBoard", "string"
+    command "sendScore", ["string"]
+    
     // simulator metadata
     simulator {
     }
-        
+    
     
     preferences {    
     }
@@ -18,7 +18,7 @@ metadata {
 
 def sendScore(String msg)
 {
-	sendEvent(name: "ScoreBoard", value: msg, displayed: true)
+    sendEvent(name: "ScoreBoard", value: msg, displayed: true)
 }
 
 def installed() { 
