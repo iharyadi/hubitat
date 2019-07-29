@@ -336,11 +336,6 @@ private def createIlluminanceEvent(int illum)
     return result
 }
 
-private String ilummStringPrefix()
-{
-    return "illuminance: "
-}
-
 def parseIlluminanceEvent(def descMap)
 {       
     if(zigbee.convertHexToInt(descMap.attrId) != SENSOR_VALUE_ATTRIBUTE())
@@ -353,6 +348,45 @@ def parseIlluminanceEvent(def descMap)
     return createIlluminanceEvent(res)
 }
 
+private def createTempertureEvent(float temp)
+{
+    def result = [:]
+    result.name = "temperature"
+    result.value = temperature
+    result.unit = "°${location.temperatureScale}"
+    
+    
+    result.value = convertTemperatureIfNeeded(temp,"c",1) 
+    result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
+    
+    return result
+}
+
+private float adjustTemp(float val)
+{	
+    if (tempOffset) {
+        val = val + tempOffset
+    }
+        
+    if(tempFilter)
+    {
+    	if(state.tempCelcius)
+        {
+    		val = tempFilter*val + (1.0-tempFilter)*state.tempCelcius
+        }
+        state.tempCelcius = val
+    }
+    
+	
+    return val
+}
+
+private def parseTemperatureEvent(def descMap)
+{    		
+    float temp = adjustTemp((zigbee.convertHexToInt(descMap.value) / 100.00).toFloat())
+
+	return createTempertureEvent(temp)   
+}
 
 private def createBinaryOutputEvent(boolean val)
 {
@@ -513,7 +547,12 @@ def parseCustomEvent(String description)
     if(description?.startsWith("read attr - raw:"))
     {
         def descMap = zigbee.parseDescriptionAsMap(description)
-        if(descMap?.cluster?.equals(zigbee.convertToHexString(DIAG_CLUSTER_ID(),4)))
+
+        if(descMap?.cluster?.equals(zigbee.convertToHexString(TEMPERATURE_CLUSTER_ID(),4)))
+        {
+            event = parseTemperatureEvent(descMap)
+        }
+        else if(descMap?.cluster?.equals(zigbee.convertToHexString(DIAG_CLUSTER_ID(),4)))
         {
             event = parseDiagnosticEvent(descMap);
         }
@@ -552,61 +591,6 @@ def parseCustomEvent(String description)
    return event
 }
 
-private String tempStringPrefix()
-{
-    return "temperature:"
-}
-
-private String humidityStringPrefix()
-{
-    return "humidity:"
-}
-
-private def adjustTemp(double val)
-{	
-    if (tempOffset) {
-        val = val + tempOffset
-    }
-        
-    if(tempFilter)
-    {
-    	if(state.tempCelcius)
-        {
-    		val = tempFilter*val + (1.0-tempFilter)*state.tempCelcius
-        }
-        state.tempCelcius = val
-    }
-    
-	
-    String res = zigbee.convertToHexString((int)(val*100),4)
-   	
-	return "${res.substring(2,4)}${res.substring(0,2)}"
-}
-
-private def adjustTempValue(String description)
-{    
-    if(!description?.startsWith("read attr - raw:"))
-    {
-        return description   
-    }
-    
-    def descMap = zigbee.parseDescriptionAsMap(description) 
-    
-    if( !(descMap?.cluster?.equals(zigbee.convertToHexString(TEMPERATURE_CLUSTER_ID(),4))))
-    {  
-        return description
-    }
-
-    if( !(descMap?.attrId?.equals(zigbee.convertToHexString(SENSOR_VALUE_ATTRIBUTE(),4))))
-    {
-        return description
-    }
-		
-    String newValue = adjustTemp((double) zigbee.convertHexToInt(descMap.value) / 100.00)
-
-	return description.replaceAll("value: [0-9A-F]{4}", "value: $newValue")   
-}
-
 // Parse incoming device messages to generate events
 def parse(String description) {
     Log("description is $description")
@@ -619,7 +603,6 @@ def parse(String description) {
         return
     }
     
-    description = adjustTempValue(description)
     def event = zigbee.getEvent(description)
     if(event)
     {
