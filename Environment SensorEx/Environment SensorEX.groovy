@@ -24,58 +24,9 @@ metadata {
 
     }
     
-    tiles(scale: 2) {
-        multiAttributeTile(name: "temperature", type: "generic", width: 6, height: 4, canChangeIcon: true) {
-            tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
-                attributeState "temperature", label: '${currentValue}°',
-                        backgroundColors: [
-                                [value: 31, color: "#153591"],
-                                [value: 44, color: "#1e9cbb"],
-                                [value: 59, color: "#90d2a7"],
-                                [value: 74, color: "#44b621"],
-                                [value: 84, color: "#f1d801"],
-                                [value: 95, color: "#d04e00"],
-                                [value: 96, color: "#bc2323"]
-                        ]
-            }
-        }
-        valueTile("humidity", "device.humidity", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
-            state "humidity", label: 'Humidity ${currentValue}${unit}', unit:"%", defaultState: true
-        }
-        valueTile("pressure", "device.pressureMeasurement", inactiveLabel: false, width: 3, height: 2, wordWrap: true) {
-            state "pressure", label: 'Pressure ${currentValue}${unit}', unit:"kPa", defaultState: true
-        }
-        
-        valueTile("illuminance", "device.illuminance", width:6, height: 2) {
-            state "illuminance", label: 'illuminance ${currentValue}${unit}', unit:"Lux", defaultState: true
-        }
-        
-        standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
-        }
-        
-        def tiles_detail = [];
-        tiles_detail.add("temperature")
-        tiles_detail.add("humidity")
-        tiles_detail.add("pressure")
-        tiles_detail.add("illuminance")
-        MapDiagAttributes().each{ k, v -> valueTile("$v", "device.$v", width: 2, height: 2, wordWrap: true) {
-                state "val", label: "$v \n"+'${currentValue}', defaultState: true
-            };
-            tiles_detail.add(v);
-        }
-        tiles_detail.add("refresh")
-        tiles_detail.add("switch")
-                
-        main "temperature"        
-        details(tiles_detail)        
-    }
-
     preferences {
     
-    	section("Environment Sensor")
-        {
-            input name:"tempOffset", type:"decimal", title: "Degrees", description: "Adjust temperature by this many degrees in Celcius",
+            input name:"tempOffset", type:"decimal", title: "Temperature offset", description: "",
                   range: "*..*", displayDuringSetup: false
             input name:"tempFilter", type:"decimal", title: "Coeficient", description: "Temperature filter between 0.0 and 1.0",
                   range: "0..1", displayDuringSetup: false
@@ -83,10 +34,7 @@ metadata {
                   range: "*..*", displayDuringSetup: false
             input name:"illumAdj", type:"decimal", title: "Factor", description: "Adjust illuminace base on formula illum / Factor", 
                 range: "1..*", displayDuringSetup: false
-    	}
         
-        section("Expansion Sensor")
-        {
         	input name:"enableAnalogInput", type: "bool", title: "Analog Input", description: "Enable Analog Input",
             	defaultValue: "false", displayDuringSetup: false 
             
@@ -104,14 +52,19 @@ metadata {
             
            	input name:"childBinaryOutput", type:"text", title: "Binary Output Handler", description: "Binary Output Child Handler",
                	displayDuringSetup: false
-        }
         
-        section("Debug Messages")
-        {
         	input name: "logEnabled", defaultValue: "true", type: "bool", title: "Enable info message logging", description: "",
             	displayDuringSetup: false
-        }
     }
+}
+
+def installed() {
+    state.scale = "${location.temperatureScale}"
+    log.debug "Installed ${device.id}"
+}
+
+def initialize() {
+	log.info "initialize"
 }
 
 private def Log(message) {
@@ -266,20 +219,45 @@ private def createPressureEvent(float pressure)
     def result = [:]
     result.name = "pressure"
     result.translatable = true
+    
+    if (state.scale == "C") {
     result.unit = "kPa"
     result.value = pressure.round(1)
+    } else
+    if (state.scale == "F") {
+    result.unit = "inHg" // US and it's territories uses inches of mercury
+    result.value = pressure.round(2)
+    }
+    
     result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
-	return result
+
+    return result
 }
 
 private def parsePressureEvent(def descMap)
-{       
+{
+    if (state.scale == "C") {
     if(zigbee.convertHexToInt(descMap.attrId) != SENSOR_VALUE_ATTRIBUTE())
     {
         return null
     }
-    float pressure = (float)zigbee.convertHexToInt(descMap.value) / 10.0
+
+    float pressure = (float)zigbee.convertHexToInt(descMap.value) / 10.0 // Metric
+    
     return createPressureEvent(pressure)
+    }
+
+    if (state.scale == "F") {
+    if(zigbee.convertHexToInt(descMap.attrId) != SENSOR_VALUE_ATTRIBUTE())
+    {
+        return null
+    }
+
+    float pressure = (float)zigbee.convertHexToInt(descMap.value) * 0.0295300 // Imperial
+    
+    return createPressureEvent(pressure)
+    }
+
 }
 
 private def createHumidityEvent(float humidity)
@@ -289,13 +267,14 @@ private def createHumidityEvent(float humidity)
     result.translatable = true
     result.value = humidity
     result.unit = "%"
-    
+
     if (humOffset) {
         result.value = result.value + humOffset
     }
     
-    result.value = result.value.round(2) 
+    result.value = result.value.round() 
     result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
+   
     return result
 }
     
@@ -352,10 +331,10 @@ private def createTempertureEvent(float temp)
 {
     def result = [:]
     result.name = "temperature"
+    result.translatable = true
     result.value = temperature
     result.unit = "°${location.temperatureScale}"
-    
-    
+
     result.value = convertTemperatureIfNeeded(temp,"c",1) 
     result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
     
@@ -370,22 +349,19 @@ private float adjustTemp(float val)
         
     if(tempFilter)
     {
-    	if(state.tempCelcius)
-        {
-    		val = tempFilter*val + (1.0-tempFilter)*state.tempCelcius
-        }
+   		val = tempFilter*val + (1.0-tempFilter)*state.tempCelcius
+        state.tempCelcius = val
+    } else {
         state.tempCelcius = val
     }
-    
-	
+   
     return val
 }
 
 private def parseTemperatureEvent(def descMap)
 {    		
-    float temp = adjustTemp((zigbee.convertHexToInt(descMap.value) / 100.00).toFloat())
-
-	return createTempertureEvent(temp)   
+    float temp = adjustTemp((hexStrToSignedInt(descMap.value) / 100.00).toFloat())
+    return createTempertureEvent(temp)
 }
 
 private def createBinaryOutputEvent(boolean val)
@@ -854,6 +830,7 @@ private updateExpansionSensorSetting()
 
 def updated() {
     Log("updated():")
+    state.scale = "${location.temperatureScale}"
 
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
