@@ -344,7 +344,7 @@ private float adjustTemp(float val)
 
 private def parseTemperatureEvent(def descMap)
 {    		
-    float temp = adjustTemp((zigbee.convertHexToInt(descMap.value) / 100.00).toFloat())
+    float temp = adjustTemp((hexStrToSignedInt(descMap.value) / 100.00).toFloat())
 
     return createTempertureEvent(temp)   
 }
@@ -926,7 +926,7 @@ private def updateSerialDevicesSetting()
         createSerialDeviceChild(it.DH, it.Page)
     } 
     
-    cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x1001 {${device.zigbeeId}} {}"    		// Bind to end point 0x40 and the temperature cluster
+    cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x1001 {${device.zigbeeId}} {}"
     cmds += "delay 1500"
     
     return cmds
