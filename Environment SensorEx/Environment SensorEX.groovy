@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 metadata {
     definition (name: "Environment Sensor EX", namespace: "iharyadi", author: "iharyadi", ocfDeviceType: "oic.r.temperature") {
         capability "Configuration"
@@ -16,16 +18,18 @@ metadata {
         attribute "BinaryInput", "BOOLEAN"
         attribute "AnalogInput", "number"
 
-    	fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
-        fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES002", deviceJoinName: "Environment Sensor"
-    	fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES003", deviceJoinName: "Environment Sensor"
-    	fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES004", deviceJoinName: "Environment Sensor"
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES002", deviceJoinName: "Environment Sensor"
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES003", deviceJoinName: "Environment Sensor"
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES004", deviceJoinName: "Environment Sensor"
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES005", deviceJoinName: "Environment Sensor"
 
     }
     
     preferences {
     
+        section("Environment Sensor")
+        {
             input name:"tempOffset", type:"decimal", title: "Temperature offset", description: "",
                   range: "*..*", displayDuringSetup: false
             input name:"tempFilter", type:"decimal", title: "Coeficient", description: "Temperature filter between 0.0 and 1.0",
@@ -34,27 +38,40 @@ metadata {
                   range: "*..*", displayDuringSetup: false
             input name:"illumAdj", type:"decimal", title: "Factor", description: "Adjust illuminace base on formula illum / Factor", 
                 range: "1..*", displayDuringSetup: false
+        }
         
-        	input name:"enableAnalogInput", type: "bool", title: "Analog Input", description: "Enable Analog Input",
-            	defaultValue: "false", displayDuringSetup: false 
+        section("Expansion Sensor")
+        {
+            input name:"enableAnalogInput", type: "bool", title: "Analog Input", description: "Enable Analog Input",
+                defaultValue: "false", displayDuringSetup: false 
             
             input name:"childAnalogInput", type:"text", title: "Analog Input Handler", description: "Analog Input Child Handler",
-               	displayDuringSetup: false
+                   displayDuringSetup: false
               
             input name:"enableBinaryInput", type: "bool", title: "Binary Input", description: "Enable Binary Input",
-               	defaultValue: "false", displayDuringSetup: false
+                   defaultValue: "false", displayDuringSetup: false
             
             input name:"childBinaryInput", type:"string", title: "Binary Input Handler", description: "Binary Input Device Handler",
-               	displayDuringSetup: false
+                   displayDuringSetup: false
               
             input name:"enableBinaryOutput", type: "bool", title: "Binary Output", description: "Enable Binary Output",
-               	defaultValue: "false", displayDuringSetup: false  
-            
-           	input name:"childBinaryOutput", type:"text", title: "Binary Output Handler", description: "Binary Output Child Handler",
-               	displayDuringSetup: false
+                   defaultValue: "false", displayDuringSetup: false 
+          
+            input name:"childBinaryOutput", type:"text", title: "Binary Output Handler", description: "Binary Output Child Handler",
+                   displayDuringSetup: false
+        }
         
-        	input name: "logEnabled", defaultValue: "true", type: "bool", title: "Enable info message logging", description: "",
-            	displayDuringSetup: false
+        section("Serial Device Children")
+        {
+            input name:"childSerialDevices", type:"text", title: "Children[JSON]", description: "Serial Children Handler",
+                   displayDuringSetup: false
+        }
+        
+        section("Debug Messages")
+        {
+            input name: "logEnabled", defaultValue: "true", type: "bool", title: "Enable info message logging", description: "",
+                displayDuringSetup: false
+        }
     }
 }
 
@@ -68,8 +85,8 @@ def initialize() {
 }
 
 private def Log(message) {
-	if (logEnabled)
-		log.info "${message}"
+    if (logEnabled)
+        log.info "${message}"
 }
 
 private def NUMBER_OF_RESETS_ID()
@@ -198,7 +215,7 @@ private def createDiagnosticEvent( String attr_name, type, value )
     
     result.value = converter[zigbee.convertHexToInt(type)]( zigbee.convertHexToInt(value));
     
-	result.descriptionText = "${device.displayName} ${result.name} is ${result.value}"
+    result.descriptionText = "${device.displayName} ${result.name} is ${result.value}"
 
     return createEvent(result)
 }
@@ -230,7 +247,6 @@ private def createPressureEvent(float pressure)
     }
     
     result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
-
     return result
 }
 
@@ -304,7 +320,7 @@ private def createIlluminanceEvent(int illum)
             val = 10.0 ** (((double) illum / 10000.0) -1.0)
         }
         
-    	result.value = val.round(2)  
+        result.value = val.round(2)  
     }
     else
     {
@@ -349,12 +365,11 @@ private float adjustTemp(float val)
         
     if(tempFilter)
     {
-   		val = tempFilter*val + (1.0-tempFilter)*state.tempCelcius
-        state.tempCelcius = val
-    } else {
-        state.tempCelcius = val
+        val = tempFilter*val + (1.0-tempFilter)*state.tempCelcius
     }
-   
+    state.tempCelcius = val
+    
+    
     return val
 }
 
@@ -377,8 +392,8 @@ private def createBinaryOutputEvent(boolean val)
 def parseBinaryOutputEvent(def descMap)
 {     
     def present_value = descMap.attrId?.equals("0055")?
-    	descMap.value:
-    	descMap.additionalAttrs?.find { item -> item.attrId?.equals("0055")}?.value
+        descMap.value:
+        descMap.additionalAttrs?.find { item -> item.attrId?.equals("0055")}?.value
     
     if(!present_value)
     {
@@ -413,7 +428,7 @@ def parseAnalogInputEvent(def descMap)
     
     if(descMap.attrId?.equals("0103"))
     {
-    	adc = descMap.value
+        adc = descMap.value
     }
     else if (descMap.attrId?.equals("0104"))
     {
@@ -423,22 +438,22 @@ def parseAnalogInputEvent(def descMap)
     {   
         adc = descMap.additionalAttrs?.find { item -> item.attrId?.equals("0103")}.value
         vdd = descMap.additionalAttrs?.find { item -> item.attrId?.equals("0104")}.value        
-	}
+    }
     
     if(vdd)
     {
-    	state.lastVdd = (((float)zigbee.convertHexToInt(vdd)*3.45)/0x1FFF)
+        state.lastVdd = (((float)zigbee.convertHexToInt(vdd)*3.45)/0x1FFF)
     }   
     
     if(!adc)
     {
-    	return null   
+        return null   
     }
 
     float volt = 0;
     if(state.lastVdd)
     {
-   		volt = (zigbee.convertHexToInt(adc) * state.lastVdd)/0x1FFF
+           volt = (zigbee.convertHexToInt(adc) * state.lastVdd)/0x1FFF
     }
     
     return createAnalogInputEvent(volt)
@@ -458,7 +473,7 @@ def parseBinaryInputEvent(def descMap)
 {       
     def value = descMap.attrId?.equals("0055") ? 
         descMap.value : 
-    	descMap.additionalAttrs?.find { item -> item.attrId?.equals("0055")}.value
+        descMap.additionalAttrs?.find { item -> item.attrId?.equals("0055")}.value
     
     if(!value)
     {
@@ -470,16 +485,16 @@ def parseBinaryInputEvent(def descMap)
 
 private def reflectToChild(String childtype, String description)
 {
-	if(!childtype)
+    if(!childtype)
     {
-    	return    
+        return    
     }
     
     def childDevice = getChildDevice("${device.deviceNetworkId}-$childtype")
     
     if(!childDevice)
     {
-    	return    
+        return    
     }
         
     def childEvent = childDevice.parse(description)
@@ -491,13 +506,35 @@ private def reflectToChild(String childtype, String description)
     childDevice.sendEvent(childEvent)    
 }
 
+private def reflectToSerialChild(def data)
+{
+    def zigbeeAddress = device.getZigbeeId()
+    
+    Integer page = zigbee.convertHexToInt(data[1])
+        
+    def childDevice = getChildDevice("$zigbeeAddress-SerialDevice-$page")
+    
+    if(!childDevice)
+    {
+        return    
+    }
+        
+    def childEvent = childDevice.parse(data)
+    if(!childEvent)
+    {
+        return
+    }
+    
+    childDevice.sendEvent(childEvent)  
+}
+
 private def createBattEvent(int val)
 {    
     def result = [:]
     result.name = "battery"
     result.translatable = true
     result.value = val/2
-	result.unit = "%"
+    result.unit = "%"
     result.descriptionText = "${device.displayName} ${result.name} is ${result.value}"  
     return result
 }
@@ -506,7 +543,7 @@ def parseBattEvent(def descMap)
 {       
     def value = descMap?.attrId?.equals(zigbee.convertToHexString(BATT_REMINING_ID(),4)) ? 
         descMap.value : 
-    	null
+        null
     
     if(!value)
     {
@@ -523,7 +560,7 @@ def parseCustomEvent(String description)
     if(description?.startsWith("read attr - raw:"))
     {
         def descMap = zigbee.parseDescriptionAsMap(description)
-
+        
         if(descMap?.cluster?.equals(zigbee.convertToHexString(TEMPERATURE_CLUSTER_ID(),4)))
         {
             event = parseTemperatureEvent(descMap)
@@ -538,11 +575,11 @@ def parseCustomEvent(String description)
         }
         else if(descMap?.cluster?.equals(zigbee.convertToHexString(HUMIDITY_CLUSTER_ID(),4)))
         {
-         	event = parseHumidityEvent(descMap); 
+             event = parseHumidityEvent(descMap); 
         }
         else if(descMap?.cluster?.equals(zigbee.convertToHexString(ILLUMINANCE_CLUSTER_ID(),4)))
         {
-         	event = parseIlluminanceEvent(descMap); 
+             event = parseIlluminanceEvent(descMap); 
         }
         else if(descMap?.cluster?.equals(zigbee.convertToHexString(BINARY_INPUT_CLUSTER_ID(),4)))
         {
@@ -551,20 +588,54 @@ def parseCustomEvent(String description)
         }
         else if(descMap?.cluster?.equals(zigbee.convertToHexString(ANALOG_INPUT_CLUSTER_ID(),4)))
         {
-        	event = parseAnalogInputEvent(descMap)
+            event = parseAnalogInputEvent(descMap)
             reflectToChild(childAnalogInput,description)
         }
         else if(descMap?.cluster?.equals(zigbee.convertToHexString(BINARY_OUTPUT_CLUSTER_ID(),4)))
         {
-        	event = parseBinaryOutputEvent(descMap)
+            event = parseBinaryOutputEvent(descMap)
             reflectToChild(childBinaryOutput,description)
         }
         else if(descMap?.cluster?.equals(zigbee.convertToHexString(POWER_CLUSTER_ID(),4)))
         {
-        	event = parseBattEvent(descMap)
+            event = parseBattEvent(descMap)
         }
    }
    return event
+}
+
+boolean parseSerial(String description)
+{
+    if(!description?.startsWith("catchall:"))
+    {
+         return false   
+    }
+        
+    def descMap = zigbee.parseDescriptionAsMap(description)
+
+    if( !(descMap.profileId?.equals("0104") ) )
+    {
+        return false
+    }    
+    
+    if( !(descMap.clusterInt?.equals(0x1001) ) )
+    {
+        return false
+    }
+    
+    if( !(descMap.command?.equals("00") ) )
+    {
+        return false
+    }
+    
+    if(!descMap.data)
+    {
+        return false
+    }
+    
+    reflectToSerialChild(descMap.data)
+      
+    return true
 }
 
 // Parse incoming device messages to generate events
@@ -586,20 +657,24 @@ def parse(String description) {
         return
     }
     
+    if(parseSerial(description))
+    {
+        return   
+    }
+    
     Log("DID NOT PARSE MESSAGE : $description")
+    
 }
 
 def off() {
-    zigbee.Off()
 }
 
 def on() {
-    zigbee.On()
 }
 
 def sendCommandPDelay(data)
 {
-	return data   
+    return data   
 }
     
 def sendCommandP(def cmd)
@@ -607,31 +682,40 @@ def sendCommandP(def cmd)
      runIn(0, sendCommandPDelay, [overwrite: false,data: cmd])
 }
 
+def sendToSerialdevice(String serialCmd)
+{
+    byte[] bt = serialCmd.getBytes();
+    
+    String serial = bt.encodeHex().toString()
+    
+    return zigbee.command(0x1001, 0x00,[:],5,serial)
+}
+
 def command(Integer Cluster, Integer Command, String payload)
 {
-	return zigbee.command(Cluster,Command,payload)
+    return zigbee.command(Cluster,Command,payload)
 }
 
 def command(Integer Cluster, Integer Command)
 {
-	return zigbee.command(Cluster,Command)
+    return zigbee.command(Cluster,Command)
 }
 
 def readAttribute(Integer Cluster, Integer attributeId, Map additionalParams)
 {
-	return zigbee.readAttribute(Cluster, attributeId, additionalParams)
+    return zigbee.readAttribute(Cluster, attributeId, additionalParams)
 }
 
 def readAttribute(Integer Cluster, Integer attributeId)
 {
-	return zigbee.readAttribute(Cluster, attributeId)
+    return zigbee.readAttribute(Cluster, attributeId)
 }
 
 def writeAttribute(Integer Cluster, Integer attributeId, 
                    Integer dataType, Integer value, 
                    Map additionalParams)
 {
-	return zigbee.writeAttribute(Cluster, attributeId, 
+    return zigbee.writeAttribute(Cluster, attributeId, 
                                  dataType, value, 
                                  additionalParams)
 }
@@ -639,7 +723,7 @@ def writeAttribute(Integer Cluster, Integer attributeId,
 def writeAttribute(Integer Cluster, Integer attributeId, 
                    Integer dataType, Integer value)
 {
-	return zigbee.writeAttribute(Cluster, attributeId, 
+    return zigbee.writeAttribute(Cluster, attributeId, 
                                  dataType, value)
 }
     
@@ -650,10 +734,10 @@ def configureReporting(Integer Cluster,
     Map additionalParams)
 {
     return zigbee.configureReporting( Cluster,
-    	attributeId,  dataType,
-     	minReportTime,  MaxReportTime,
-    	reportableChange,
-    	aditionalParams)
+        attributeId,  dataType,
+         minReportTime,  MaxReportTime,
+        reportableChange,
+        aditionalParams)
 }
 
 def configureReporting(Integer Cluster,
@@ -662,9 +746,9 @@ def configureReporting(Integer Cluster,
     Integer reportableChange)
 {
     return zigbee.configureReporting( Cluster,
-    	attributeId,  dataType,
-     	minReportTime,  MaxReportTime,
-    	reportableChange)
+        attributeId,  dataType,
+         minReportTime,  MaxReportTime,
+        reportableChange)
 }
 
 def configureReporting(Integer Cluster,
@@ -672,13 +756,13 @@ def configureReporting(Integer Cluster,
     Integer minReportTime, Integer MaxReportTime)
 {
     return zigbee.configureReporting( Cluster,
-    	attributeId,  dataType,
-     	minReportTime,  MaxReportTime)
+        attributeId,  dataType,
+         minReportTime,  MaxReportTime)
 }
 
 def binaryoutputOff()
 {
-	zigbee.writeAttribute(0x0010, 0x0055, DataType.BOOLEAN, 0)
+    zigbee.writeAttribute(0x0010, 0x0055, DataType.BOOLEAN, 0)
 }
 
 def binaryoutputOn()
@@ -686,17 +770,19 @@ def binaryoutputOn()
     zigbee.writeAttribute(0x0010, 0x0055, DataType.BOOLEAN, 1)
 }
 
+
+
 private def refreshExpansionSensor()
 {
-	def cmds = []
+    def cmds = []
     
     def mapExpansionRefresh = [[0x0010,enableBinaryOutput,0x0055],
-    	[0x000F,enableBinaryInput,0x0055],
+        [0x000F,enableBinaryInput,0x0055],
         [0x000C, enableAnalogInput,0x00104],
         [0x000C, enableAnalogInput,0x00103]]
         
     mapExpansionRefresh.findAll { return it[1] }.each{
-    	cmds = cmds + zigbee.readAttribute(it[0],it[2])
+        cmds = cmds + zigbee.readAttribute(it[0],it[2])
         }
         
     return cmds
@@ -704,16 +790,17 @@ private def refreshExpansionSensor()
 
 private def refreshOnBoardSensor()
 {
-	def model = device.getDataValue("model")
+    def model = device.getDataValue("model")
     
     def cmds = [];
     
      def mapRefresh = ["RES001":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()],
-     	"RES002":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID()],
-        "RES003":[ILLUMINANCE_CLUSTER_ID()]]
+         "RES002":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID()],
+         "RES003":[ILLUMINANCE_CLUSTER_ID()],
+         "RES005":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()]]
      
     mapRefresh[model]?.each{
-    	cmds = cmds + zigbee.readAttribute(it,SENSOR_VALUE_ATTRIBUTE());
+        cmds = cmds + zigbee.readAttribute(it,SENSOR_VALUE_ATTRIBUTE());
     }
     
     return cmds
@@ -721,22 +808,22 @@ private def refreshOnBoardSensor()
 
 private def refreshDiagnostic()
 {
-	def cmds = [];
+    def cmds = [];
     MapDiagAttributes().each{ k, v -> cmds +=  zigbee.readAttribute(DIAG_CLUSTER_ID(), k) } 
     return cmds
 }
 
 private def refreshBatt()
 {
-	return zigbee.readAttribute(POWER_CLUSTER_ID(), BATT_REMINING_ID()) 
+    return zigbee.readAttribute(POWER_CLUSTER_ID(), BATT_REMINING_ID()) 
 }
 
 def refresh() {
     Log ("Refresh")
     state.lastRefreshAt = new Date(now()).format("yyyy-MM-dd HH:mm:ss", location.timeZone)
-     
+    
     return refreshOnBoardSensor() + 
-    	refreshExpansionSensor() + 
+        refreshExpansionSensor() + 
         refreshDiagnostic() +
         refreshBatt()
 }
@@ -753,7 +840,7 @@ private def reportBME280Parameters()
 private def reportTEMT6000Parameters()
 {
     def reportParameters = [];
-    reportParameters = reportParameters + [[ILLUMINANCE_CLUSTER_ID(),DataType.UINT16, 5, 307, 500]]
+    reportParameters = reportParameters + [[ILLUMINANCE_CLUSTER_ID(),DataType.UINT16, 5, 303, 500]]
     return reportParameters
 }
 
@@ -763,19 +850,20 @@ def configure() {
     state.remove("tempCelcius")
     
     def mapConfigure = ["RES001":reportBME280Parameters()+reportTEMT6000Parameters(),
-    	"RES002":reportBME280Parameters(),
-        "RES003":reportTEMT6000Parameters()]
+        "RES002":reportBME280Parameters(),
+        "RES003":reportTEMT6000Parameters(),
+        "RES005":reportBME280Parameters()+reportTEMT6000Parameters()]
     
     def model = device.getDataValue("model")
     
     def cmds = [];
     mapConfigure[model]?.each{
-    	cmds = cmds + zigbee.configureReporting(it[0], SENSOR_VALUE_ATTRIBUTE(), it[1],it[2],it[3],it[4])
+        cmds = cmds + zigbee.configureReporting(it[0], SENSOR_VALUE_ATTRIBUTE(), it[1],it[2],it[3],it[4])
     }
     
     cmds += zigbee.configureReporting(POWER_CLUSTER_ID(), BATT_REMINING_ID(), DataType.UINT8,20,307,2)
     cmds = cmds + refresh();
- 
+    
     return cmds
 }
 
@@ -798,32 +886,78 @@ private def createChild(String childDH, String component)
                         componentLabel: "${device.displayName} $childDH"])
     }
     
-    return childDevice.configure_child()
+    return childDevice?.configure_child()
 }
 
-private updateExpansionSensorSetting()
+private def updateExpansionSensorSetting()
 {    
     def cmds = []
     
     def mapExpansionEnable = [[0x0010,enableBinaryOutput,DataType.BOOLEAN,0x0055],
-    	[0x000F,enableBinaryInput,DataType.BOOLEAN,0x0055],
+        [0x000F,enableBinaryInput,DataType.BOOLEAN,0x0055],
         [0x000C, enableAnalogInput,DataType.UINT16,0x0103]]
         
     mapExpansionEnable.each{ 
-    	cmds = cmds + zigbee.writeAttribute(it[0], 0x0051, DataType.BOOLEAN, it[1]?1:0)
+        cmds = cmds + zigbee.writeAttribute(it[0], 0x0051, DataType.BOOLEAN, it[1]?1:0)
         if(!it[1])
         {
-        	cmds = cmds + zigbee.configureReporting(it[0], it[3], it[2], 0xFFFF, 0xFFFF,1)
+            cmds = cmds + zigbee.configureReporting(it[0], it[3], it[2], 0xFFFF, 0xFFFF,1)
         }
     }
     
     def mapExpansionChildrenCreate = [[enableBinaryOutput,childBinaryOutput,"BinaryOutput"],
-    	[enableBinaryInput,childBinaryInput,"BinaryInput"],
+        [enableBinaryInput,childBinaryInput,"BinaryInput"],
         [enableAnalogInput,childAnalogInput,"AnalogInput"]]
 
     mapExpansionChildrenCreate.findAll{return (it[0] && it[1])}.each{
-    	cmds = cmds + createChild(it[1],it[2])
+        cmds = cmds + createChild(it[1],it[2])
     }
+    
+    return cmds
+}
+
+private def createSerialDeviceChild(String childDH, Integer page)
+{    
+    if(!childDH)
+    {
+        return null
+    }
+    
+    def zigbeeAddress = device.getZigbeeId()
+    def childDevice = getChildDevice("$zigbeeAddress-SerialDevice-$page")
+    if(!childDevice)
+    {
+        childDevice = addChildDevice("iharyadi", 
+                       "$childDH", 
+                       "$zigbeeAddress-SerialDevice-$page",
+                       [label: "${device.displayName} SerialDevice-$page",
+                        isComponent: false, 
+                        componentName: "SerialDevice-$page", 
+                        componentLabel: "${device.displayName} SerialDevice-$page",
+                        pageNumber: page])
+    }
+    
+    return childDevice?.configure_child()
+}
+
+private def updateSerialDevicesSetting()
+{   
+    if(!childSerialDevices)
+    {
+        return;   
+    }
+    
+    def cmds = []
+    
+    def jsonSlurper = new JsonSlurper()
+    def serialchild = jsonSlurper.parseText(childSerialDevices)
+    
+    serialchild.each{
+        createSerialDeviceChild(it.DH, it.Page)
+    } 
+    
+    cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x1001 {${device.zigbeeId}} {}"    		// Bind to end point 0x40 and the temperature cluster
+    cmds += "delay 1500"
     
     return cmds
 }
@@ -835,7 +969,16 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
         state.remove("tempCelcius")
-        return updateExpansionSensorSetting() + refresh()
+        
+        def cmds = updateExpansionSensorSetting()
+        
+        if(device.getDataValue("model") == "RES005")
+        {
+            cmds += updateSerialDevicesSetting()
+        }
+        
+        cmds += refresh()
+        return cmds
     }
     else {
         Log("updated(): Ran within last 2 seconds so aborting.")
