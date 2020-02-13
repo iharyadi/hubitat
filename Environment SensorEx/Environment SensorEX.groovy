@@ -1,4 +1,5 @@
 import groovy.json.JsonSlurper
+import hubitat.zigbee.clusters.iaszone.ZoneStatus
 
 metadata {
     definition (name: "Environment Sensor EX", namespace: "iharyadi", author: "iharyadi", ocfDeviceType: "oic.r.temperature") {
@@ -10,6 +11,9 @@ metadata {
         capability "Illuminance Measurement"
         capability "PressureMeasurement"
         capability "Switch"
+        capability "SmokeDetector"
+        capability "PowerSource"
+        capability "CarbonMonoxideDetector"
         capability "Sensor"
                 
         MapDiagAttributes().each{ k, v -> attribute "$v", "number" }
@@ -19,10 +23,12 @@ metadata {
         attribute "AnalogInput", "number"
 
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
+        fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010,1001", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES002", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES003", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES004", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES005", deviceJoinName: "Environment Sensor"
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010, 0500", manufacturer: "KMPCIL", model: "RES006", deviceJoinName: "Environment Sensor"
 
     }
     
@@ -608,10 +614,73 @@ boolean parseSerial(String description)
     return true
 }
 
+private boolean parseIasMessage(String description) {
+    
+    if (description?.startsWith('enroll request')) 
+    {
+		Log ("Sending IAS enroll response...")
+        
+		def cmds = zigbee.enrollResponse()
+        
+        cmds?.collect{ sendHubCommand(new hubitat.device.HubAction(it,hubitat.device.Protocol.ZIGBEE) ) };
+        return true
+	}
+    else if (description?.startsWith('zone status ')) 
+    {        
+        ZoneStatus zs = zigbee.parseZoneStatus(description)
+        String[] iasinfo = description.split(" ")
+        int x =  hexStrToSignedInt(iasinfo[6])
+        
+        def resultMap;
+        
+        if(zs.alarm1)
+        {
+            if(x == 0)
+            {
+                resultMap = createEvent(name: "smoke", value: "detected")
+            }
+            else
+            {
+                resultMap = createEvent(name: "carbonMonoxide", value: "detected")
+            }
+            
+            sendEvent(resultMap)
+            
+        }
+        else
+        {
+            
+           resultMap = createEvent(name: "smoke", value: "clear")
+           sendEvent(resultMap)
+            
+           resultMap = createEvent(name: "carbonMonoxide", value: "clear")
+           sendEvent(resultMap)
+        }
+     
+        if(zs.ac)
+        {
+            resultMap = createEvent(name: "powerSource", value: "battery")
+        }
+        else
+        {
+            resultMap = createEvent(name: "powerSource", value: "main")
+        }   
+        sendEvent(resultMap)
+        
+        return true
+    }
+    
+    return false
+}
+
 // Parse incoming device messages to generate events
 def parse(String description) {
-    Log("description is $description")
+    Log("parse: $description")
     
+    if(parseIasMessage(description))
+    {
+        return
+    }
     
     event = parseCustomEvent(description)
     if(event)
@@ -766,8 +835,9 @@ private def refreshOnBoardSensor()
     
      def mapRefresh = ["RES001":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()],
          "RES002":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID()],
-        "RES003":[ILLUMINANCE_CLUSTER_ID()],
-        "RES005":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()]]
+         "RES003":[ILLUMINANCE_CLUSTER_ID()],
+         "RES005":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()],
+         "RES006":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()]]
      
     mapRefresh[model]?.each{
         cmds = cmds + zigbee.readAttribute(it,SENSOR_VALUE_ATTRIBUTE());
@@ -814,6 +884,37 @@ private def reportTEMT6000Parameters()
     return reportParameters
 }
 
+private String swapEndianHex(String hex) {
+	reverseArray(hex.decodeHex()).encodeHex()
+}
+
+private byte[] reverseArray(byte[] array) {
+	int i = 0;
+	int j = array.length - 1;
+	byte tmp;
+	while (j > i) {
+		tmp = array[j];
+		array[j] = array[i];
+		array[i] = tmp;
+		j--;
+		i++;
+	}
+	return array
+}
+
+private def configureIASZone()
+{   
+    def cmds = []
+    
+    cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x0500 {${device.zigbeeId}} {}"
+    cmds += "delay 1500"
+            
+    cmds += "he wattr 0x${device.deviceNetworkId} 0x${device.endpointId} 0x0500 0x0010 0xf0 {${swapEndianHex(device.hub.zigbeeId)}}"
+    cmds += "delay 2000"
+          
+    return cmds
+}
+
 def configure() {
 
     Log("Configuring Reporting and Bindings.")
@@ -822,7 +923,8 @@ def configure() {
     def mapConfigure = ["RES001":reportBME280Parameters()+reportTEMT6000Parameters(),
         "RES002":reportBME280Parameters(),
         "RES003":reportTEMT6000Parameters(),
-        "RES005":reportBME280Parameters()+reportTEMT6000Parameters()]
+        "RES005":reportBME280Parameters()+reportTEMT6000Parameters(),
+        "RES006":reportBME280Parameters()+reportTEMT6000Parameters()]
     
     def model = device.getDataValue("model")
     
@@ -832,6 +934,12 @@ def configure() {
     }
     
     cmds += zigbee.configureReporting(POWER_CLUSTER_ID(), BATT_REMINING_ID(), DataType.UINT8,20,307,2)
+    
+    if(model == "RES006")
+    {
+       cmds = cmds + configureIASZone()
+    }
+    
     cmds = cmds + refresh();
     
     return cmds
@@ -927,7 +1035,7 @@ private def updateSerialDevicesSetting()
     } 
     
     cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x1001 {${device.zigbeeId}} {}"
-    cmds += "delay 1500"
+    cmds += "delay 1500"       
     
     return cmds
 }
