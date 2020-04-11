@@ -721,13 +721,11 @@ def sendCommandP(def cmd)
      runIn(0, sendCommandPDelay, [overwrite: false,data: cmd])
 }
 
-def sendToSerialdevice(String serialCmd)
+def sendToSerialdevice(byte[] serialCmd)
 {
-    byte[] bt = serialCmd.getBytes();
+    String serial = serialCmd.encodeHex().toString()
     
-    String serial = bt.encodeHex().toString()
-    
-    return zigbee.command(0x1001, 0x00,[:],5,serial)
+    return zigbee.command(SERIAL_TUNNEL_CLUSTER_ID(), 0x00,[:],5,serial)
 }
 
 def command(Integer Cluster, Integer Command, String payload)
