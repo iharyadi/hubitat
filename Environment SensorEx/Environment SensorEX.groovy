@@ -63,7 +63,7 @@ metadata {
             input name:"enableBinaryOutput", type: "bool", title: "Binary Output", description: "Enable Binary Output",
                    defaultValue: "false", displayDuringSetup: false  
             
-               input name:"childBinaryOutput", type:"text", title: "Binary Output Handler", description: "Binary Output Child Handler",
+            input name:"childBinaryOutput", type:"text", title: "Binary Output Handler", description: "Binary Output Child Handler",
                    displayDuringSetup: false
         }
         
@@ -184,6 +184,11 @@ private def ANALOG_INPUT_CLUSTER_ID()
 private def SENSOR_VALUE_ATTRIBUTE()
 {
     return 0x0000;
+}
+
+private def SERIAL_TUNNEL_CLUSTER_ID()
+{
+    return 0x1001;
 }
 
 private def MapDiagAttributes()
@@ -594,7 +599,7 @@ boolean parseSerial(String description)
         return false
     }    
     
-    if( !(descMap.clusterInt?.equals(0x1001) ) )
+    if( !(descMap.clusterInt?.equals(SERIAL_TUNNEL_CLUSTER_ID()) ) )
     {
         return false
     }
@@ -722,7 +727,7 @@ def sendCommandP(def cmd)
 }
 
 def sendToSerialdevice(byte[] serialCmd)
-{
+{   
     String serial = serialCmd.encodeHex().toString()
     
     return zigbee.command(SERIAL_TUNNEL_CLUSTER_ID(), 0x00,[:],5,serial)
@@ -931,7 +936,7 @@ def configure() {
         cmds = cmds + zigbee.configureReporting(it[0], SENSOR_VALUE_ATTRIBUTE(), it[1],it[2],it[3],it[4])
     }
     
-    cmds += zigbee.configureReporting(POWER_CLUSTER_ID(), BATT_REMINING_ID(), DataType.UINT8,20,307,2)
+    cmds += zigbee.configureReporting(POWER_CLUSTER_ID(), BATT_REMINING_ID(), DataType.UINT8,60,307,4)
     
     if(model == "RES006")
     {
