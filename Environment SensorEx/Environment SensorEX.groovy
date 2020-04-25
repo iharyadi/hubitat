@@ -1037,8 +1037,8 @@ private def updateSerialDevicesSetting()
         createSerialDeviceChild(it.DH, it.Page)
     } 
     
-    cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x1001 {${device.zigbeeId}} {}"
-    cmds += "delay 1500"       
+    cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x${Integer.toHexString(SERIAL_TUNNEL_CLUSTER_ID())} {${device.zigbeeId}} {}"
+    cmds += "delay 1500"     
     
     return cmds
 }
