@@ -88,7 +88,13 @@ metadata {
         input "illumAdj", "decimal", title: "Factor", description: "Adjust illuminace base on formula illum / Factor", 
             range: "1..*", displayDuringSetup: false
     }
-	
+
+    preferences {
+        input name:"relativePressOffset", type:"decimal", title: "Relative Pressure", description: "Relative pressure offset in kPA", 
+                range: "0..*", displayDuringSetup: false
+        input name: "pressureInHg", defaultValue: "false", type: "bool", title: "Report pressure in inhg", description: "",
+                displayDuringSetup: false
+	}
     preferences {
             input name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: true
 	}
@@ -218,12 +224,26 @@ private def parseDiagnosticEvent(def descMap)
 
 private def createPressureEvent(float pressure)
 {
+    String unit = pressureInHg ? "inhg": "kPa"
     def result = [:]
     result.name = "pressure"
     result.translatable = true
-    result.unit = "kPa"
-    result.value = pressure.round(1)
-    result.descriptionText = "{{ device.displayName }} pressure was $result.value"
+    result.unit = unit
+    result.value = pressureInHg ? (pressure/3.386).round(1):pressure.round(1)
+    result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
+    
+    if (relativePressOffset && relativePressOffset != 0)
+    {
+        pressure = pressure+relativePressOffset
+        def relPEvent = [:]
+        relPEvent.name = "relativePressure"
+        relPEvent.translatable = true
+        relPEvent.unit = unit
+        relPEvent.value = pressureInHg ? (pressure/3.386).round(1):pressure.round(1)
+        relPEvent.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
+        sendEvent(relPEvent)
+    }
+    
     return result
 }
 
