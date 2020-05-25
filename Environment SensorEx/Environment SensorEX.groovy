@@ -21,6 +21,7 @@ metadata {
         attribute "BinaryOutput", "BOOLEAN"
         attribute "BinaryInput", "BOOLEAN"
         attribute "AnalogInput", "number"
+        attribute "relativePressure", "number"
 
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010,1001", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
@@ -44,6 +45,10 @@ metadata {
                   range: "*..*", displayDuringSetup: false
             input name:"illumAdj", type:"decimal", title: "Factor", description: "Adjust illuminace base on formula illum / Factor", 
                 range: "1..*", displayDuringSetup: false
+            input name:"relativePressOffset", type:"decimal", title: "Relative Pressure", description: "Relative pressure offset in kPA", 
+                range: "0..*", displayDuringSetup: false
+            input name: "pressureInHg", defaultValue: "false", type: "bool", title: "Report pressure in inhg", description: "",
+                displayDuringSetup: false
         }
         
         section("Expansion Sensor")
@@ -235,12 +240,26 @@ private def parseDiagnosticEvent(def descMap)
 
 private def createPressureEvent(float pressure)
 {
+    String unit = pressureInHg ? "inhg": "kPa"
     def result = [:]
     result.name = "pressure"
     result.translatable = true
-    result.unit = "kPa"
-    result.value = pressure.round(1)
+    result.unit = unit
+    result.value = pressureInHg ? (pressure/3.386).round(1):pressure.round(1)
     result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
+    
+    if (relativePressOffset && relativePressOffset != 0)
+    {
+        pressure = pressure+relativePressOffset
+        def relPEvent = [:]
+        relPEvent.name = "relativePressure"
+        relPEvent.translatable = true
+        relPEvent.unit = unit
+        relPEvent.value = pressureInHg ? (pressure/3.386).round(1):pressure.round(1)
+        relPEvent.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
+        sendEvent(relPEvent)
+    }
+    
     return result
 }
 
@@ -730,7 +749,7 @@ def sendToSerialdevice(byte[] serialCmd)
 {   
     String serial = serialCmd.encodeHex().toString()
     
-    return zigbee.command(SERIAL_TUNNEL_CLUSTER_ID(), 0x00,[:],5,serial)
+    return zigbee.command(SERIAL_TUNNEL_CLUSTER_ID(), 0x00,[:],0,serial)
 }
 
 def command(Integer Cluster, Integer Command, String payload)
@@ -811,8 +830,6 @@ def binaryoutputOn()
 {
     zigbee.writeAttribute(0x0010, 0x0055, DataType.BOOLEAN, 1)
 }
-
-
 
 private def refreshExpansionSensor()
 {
@@ -998,6 +1015,11 @@ private def updateExpansionSensorSetting()
 }
 
 private def createSerialDeviceChild(String childDH, Integer page)
+{
+    createSerialDeviceChildWithLabel(childDH,page, "${device.displayName} SerialDevice-$page")
+}
+
+def createSerialDeviceChildWithLabel(String childDH, Integer page, String label)
 {    
     if(!childDH)
     {
@@ -1011,7 +1033,7 @@ private def createSerialDeviceChild(String childDH, Integer page)
         childDevice = addChildDevice("iharyadi", 
                        "$childDH", 
                        "$zigbeeAddress-SerialDevice-$page",
-                       [label: "${device.displayName} SerialDevice-$page",
+                       [label: "${label}",
                         isComponent: false, 
                         componentName: "SerialDevice-$page", 
                         componentLabel: "${device.displayName} SerialDevice-$page",
@@ -1023,12 +1045,11 @@ private def createSerialDeviceChild(String childDH, Integer page)
 
 private def updateSerialDevicesSetting()
 {   
+    def cmds = []
     if(!childSerialDevices)
     {
-        return;   
+        return cmds;   
     }
-    
-    def cmds = []
     
     def jsonSlurper = new JsonSlurper()
     def serialchild = jsonSlurper.parseText(childSerialDevices)
@@ -1038,7 +1059,7 @@ private def updateSerialDevicesSetting()
     } 
     
     cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x${Integer.toHexString(SERIAL_TUNNEL_CLUSTER_ID())} {${device.zigbeeId}} {}"
-    cmds += "delay 1500"     
+    cmds += "delay 1500"       
     
     return cmds
 }
