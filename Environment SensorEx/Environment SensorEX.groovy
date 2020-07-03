@@ -245,7 +245,7 @@ private def createPressureEvent(float pressure)
     result.name = "pressure"
     result.translatable = true
     result.unit = unit
-    result.value = pressureInHg ? (pressure/3.386).round(1):pressure.round(1)
+    result.value = (pressureInHg ? (pressure/3.386):pressure).round(2)
     result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
     
     if (relativePressOffset && relativePressOffset != 0)
@@ -255,7 +255,7 @@ private def createPressureEvent(float pressure)
         relPEvent.name = "relativePressure"
         relPEvent.translatable = true
         relPEvent.unit = unit
-        relPEvent.value = pressureInHg ? (pressure/3.386).round(1):pressure.round(1)
+        relPEvent.value = (pressureInHg ? (pressure/3.386):pressure).round(2)
         relPEvent.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
         sendEvent(relPEvent)
     }
