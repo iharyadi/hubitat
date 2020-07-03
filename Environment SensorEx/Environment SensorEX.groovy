@@ -313,7 +313,7 @@ private def createIlluminanceEvent(int illum)
         double val = 0.0
         if(ilumm != 0)
         {
-            val = 10.0 ** (((double) illum / 10000.0) -1.0)
+            val = 10.0 ** (((double) illum -1.0)/10000.0)
         }
         
         result.value = val.round(2)  
