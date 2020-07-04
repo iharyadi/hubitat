@@ -311,7 +311,7 @@ private def createIlluminanceEvent(int illum)
     if(!illumAdj ||  illumAdj < 1.0)
     {
         double val = 0.0
-        if(ilumm != 0)
+        if(ilumm > 0)
         {
             val = 10.0 ** (((double) illum -1.0)/10000.0)
         }
