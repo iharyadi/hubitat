@@ -22,7 +22,7 @@ metadata {
         attribute "BinaryInput", "BOOLEAN"
         attribute "AnalogInput", "number"
         attribute "relativePressure", "number"
-
+        
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010,1001", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES002", deviceJoinName: "Environment Sensor"
@@ -311,7 +311,7 @@ private def createIlluminanceEvent(int illum)
     if(!illumAdj ||  illumAdj < 1.0)
     {
         double val = 0.0
-        if(ilumm > 0)
+        if(illum > 0)
         {
             val = 10.0 ** (((double) illum -1.0)/10000.0)
         }
@@ -890,18 +890,14 @@ def refresh() {
 
 private def reportBME280Parameters()
 {
-    def reportParameters = [];
-    reportParameters = reportParameters + [[TEMPERATURE_CLUSTER_ID(),DataType.INT16, 5, 300, 10]]
-    reportParameters = reportParameters + [[HUMIDITY_CLUSTER_ID(),DataType.UINT16, 5, 301, 100]]
-    reportParameters = reportParameters + [[PRESSURE_CLUSTER_ID(),DataType.UINT16, 5, 302, 2]]
-    return reportParameters
+    return [[TEMPERATURE_CLUSTER_ID(),DataType.INT16, 5, 300, 10],
+            [HUMIDITY_CLUSTER_ID(),DataType.UINT16, 5, 301, 100],
+            [PRESSURE_CLUSTER_ID(),DataType.UINT16, 5, 302, 2]]
 }
 
 private def reportTEMT6000Parameters()
 {
-    def reportParameters = [];
-    reportParameters = reportParameters + [[ILLUMINANCE_CLUSTER_ID(),DataType.UINT16, 5, 303, 500]]
-    return reportParameters
+    return [[ILLUMINANCE_CLUSTER_ID(),DataType.UINT16, 5, 303, 500]]
 }
 
 private String swapEndianHex(String hex) {
