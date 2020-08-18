@@ -50,13 +50,12 @@ private long byteArrayInt(def byteArray) {
 
 private def parseXiaomiBleAdverstimenteirData(def data)
 {    
-    if(data.size()<18)
+    if(data.size()<16)
     {
-        log.error "Bad data ${data}"
-        return null   
+       return null   
     }
     
-    if(data.size() < 17+data[16])
+    if(data.size() < 16+data[15])
     {
         log.error "Bad data ${data}"
         return null   
@@ -71,7 +70,7 @@ private def parseXiaomiBleAdverstimenteirData(def data)
                10:{ x -> return [name:"battery", value:x, unit:"%"]},
                13:{ x -> return [[name:"temperature", value:convertTemperatureIfNeeded((float)(x>>16)/10,"c",1), unit:"°${location.temperatureScale}"],   [name:"humidity", value:(x&0x0000FFFF), unit:"%"]]} ]
     
-    int ndx = data[14]  
+    int ndx = data[13]  
     def eventConverter = mapEventConverter[ndx]
     if(!eventConverter)
     {
@@ -79,7 +78,7 @@ private def parseXiaomiBleAdverstimenteirData(def data)
         return null   
     }
     
-    return sendEvent(eventConverter(byteArrayInt(data[17..(17+data[16]-1)])))
+    return sendEvent(eventConverter(byteArrayInt(data[16..(16+data[15]-1)])))
 }
 
 private def parseBleAdverstimentEIRData(byte[] data)
