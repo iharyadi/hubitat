@@ -6,7 +6,6 @@ metadata {
         capability "Sensor"
         capability "Temperature Measurement"
         capability "RelativeHumidityMeasurement"
-        capability "Battery"
         capability "PresenceSensor"
         capability "Configuration"        
     }        
