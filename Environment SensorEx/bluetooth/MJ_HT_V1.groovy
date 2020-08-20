@@ -1,5 +1,6 @@
 import java.text.SimpleDateFormat;  
 import java.util.Date;  
+import java.lang.Math; 
 
 metadata {
     definition (name: "MJ_HT_V1", namespace: "iharyadi", author: "iharyadi") {
@@ -61,6 +62,23 @@ private def parseXiaomiBleAdverstimenteirData(def data)
         return null   
     }
     
+    boolean forceUpdate = true
+    if(device.lastActivity)
+    {    
+        use(groovy.time.TimeCategory)
+        {
+            def currentDate = new Date()
+            def duration = currentDate - device.lastActivity
+            forceUpdate = duration.days > 0 || duration.hours > 0 || duration.minutes >= 1
+        }
+    }
+       
+    if(forceUpdate)
+    {
+        updatePresent()
+    }
+        
+    
     def mapEventConverter = [4:{ x -> return  [[name:"temperature", value:convertTemperatureIfNeeded((float)x /10,"c",1), unit:"°${location.temperatureScale}"]]},
                5:{ x -> return  [[name:"status", value:x]]},
                6:{ x -> return  [[name:"humidity", value:(float)x/10, unit:"%"]]},
@@ -74,13 +92,15 @@ private def parseXiaomiBleAdverstimenteirData(def data)
     def eventConverter = mapEventConverter[ndx]
     if(!eventConverter)
     {
-        log.info "Bad data ${data}"
         return null   
     }
     
     eventConverter(byteArrayInt(data[16..(16+data[15]-1)])).each
     {
-        sendEvent(it)
+        if(forceUpdate || Math.abs(device.currentValue(it["name"]) - it["value"]) > 1.0)
+        {
+            sendEvent(it)
+        }
     }
     return null 
 }
@@ -130,38 +150,13 @@ def  parse(def data) {
    
     if(data[0] == ADRVERTISEMENT_FRAME())
     {
-        updatePresent()
         def dataMap = parseBleAdverstiment(data)
     
         if(!dataMap["eirData"][22])
         {
            return null;
         }
-        
-        if(state.lastData)
-        {
-            if(state.lastData == dataMap["eirData"][22])
-            {
-                boolean forceUpdate = true
-                if(device.lastActivity)
-                {    
-                    use(groovy.time.TimeCategory)
-                    {
-                        def currentDate = new Date()
-                        def duration = currentDate - device.lastActivity
-                        forceUpdate = duration.days > 0 || duration.hours > 0 || duration.minutes >= 1
-                    }
-                }
-        
-                if(!forceUpdate)
-                {
-                    return null
-                }
-            }
-        }
-        
-        state.lastData = dataMap["eirData"][22]
-            
+           
         return parseXiaomiBleAdverstimenteirData(dataMap["eirData"][22])
     }
 }
