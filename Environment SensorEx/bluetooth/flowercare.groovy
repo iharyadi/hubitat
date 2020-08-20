@@ -60,14 +60,14 @@ private def parseXiaomiBleAdverstimenteirData(def data)
         return null   
     }
     
-    def mapEventConverter = [4:{ x -> return  [name:"temperature", value:convertTemperatureIfNeeded((float)x /10,"c",1), unit:"°${location.temperatureScale}"]},
-               5:{ x -> return  [name:"status", value:x]},
-               6:{ x -> return  [name:"humidity", value:x, unit:"%"]},
-               7:{ x -> return  [name:"illuminance", value:x]},
-               8:{ x -> return  [name:"moisture", value:x, unit:"%"]},
-               9:{ x -> return  [name:"fertility", value:x]},
-               10:{ x -> return [name:"battery", value:x, unit:"%"]},
-               13:{ x -> return [[name:"temperature", value:convertTemperatureIfNeeded((float)(x>>16)/10,"c",1), unit:"°${location.temperatureScale}"],   [name:"humidity", value:(x&0x0000FFFF), unit:"%"]]} ]
+    def mapEventConverter = [4:{ x -> return  [[name:"temperature", value:convertTemperatureIfNeeded((float)x /10,"c",1), unit:"°${location.temperatureScale}"]]},
+               5:{ x -> return  [[name:"status", value:x]]},
+               6:{ x -> return  [[name:"humidity", value:x, unit:"%"]]},
+               7:{ x -> return  [[name:"illuminance", value:x]]},
+               8:{ x -> return  [[name:"moisture", value:x, unit:"%"]]},
+               9:{ x -> return  [[name:"fertility", value:x]]},
+               10:{ x -> return [[name:"battery", value:x, unit:"%"]]},
+               13:{ x -> return [[name:"temperature", value:convertTemperatureIfNeeded((float)(x&0x0000FFFF)/10.0,"c",1), unit:"°${location.temperatureScale}"],   [name:"humidity", value:(float)((x>>16)&0x0000FFFF)/10.0, unit:"%"]]} ]
     
     int ndx = data[14]  
     def eventConverter = mapEventConverter[ndx]
@@ -77,7 +77,12 @@ private def parseXiaomiBleAdverstimenteirData(def data)
         return null   
     }
     
-    return sendEvent(eventConverter(byteArrayInt(data[17..(17+data[16]-1)])))
+    eventConverter(byteArrayInt(data[17..(17+data[16]-1)])).each
+    {
+        sendEvent(it)
+    }
+    
+    return null
 }
 
 private def parseBleAdverstimentEIRData(byte[] data)
@@ -170,7 +175,7 @@ def  parse(def data) {
     }
     else if(data[0] == READ_ATTRIBUTE_FRAME())
     {
-        if(bytesToHex(data[23..8]).equalsIgnoreCase("00001a0200001000800000805f9b34fb"))
+        if(bytesToHex(data[23..8]).equalsIgnoreCase("00000000000000000000000000001A02") && data[24] == 7)
         {
             sendEvent(name:"battery", value:data[25])
         }
