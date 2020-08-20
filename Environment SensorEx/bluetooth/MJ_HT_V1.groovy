@@ -8,6 +8,7 @@ metadata {
         capability "Temperature Measurement"
         capability "RelativeHumidityMeasurement"
         capability "PresenceSensor"
+        capability "Battery" 
         capability "Configuration"        
     }        
 }
@@ -79,14 +80,14 @@ private def parseXiaomiBleAdverstimenteirData(def data)
     }
         
     
-    def mapEventConverter = [4:{ x -> return  [[name:"temperature", value:convertTemperatureIfNeeded((float)x /10,"c",1), unit:"°${location.temperatureScale}"]]},
+    def mapEventConverter = [4:{ x -> return  [[name:"temperature", value:Float.parseFloat(convertTemperatureIfNeeded((float)x /10,"c",1)), unit:"°${location.temperatureScale}"]]},
                5:{ x -> return  [[name:"status", value:x]]},
                6:{ x -> return  [[name:"humidity", value:(float)x/10, unit:"%"]]},
                7:{ x -> return  [[name:"illuminance", value:x]]},
                8:{ x -> return  [[name:"moisture", value:x, unit:"%"]]},
                9:{ x -> return  [[name:"fertility", value:x]]},
                10:{ x -> return [[name:"battery", value:x, unit:"%"]]},
-               13:{ x -> return [[name:"temperature", value:convertTemperatureIfNeeded((float)(x&0x0000FFFF)/10.0,"c",1), unit:"°${location.temperatureScale}"],   [name:"humidity", value:(float)((x>>16)&0x0000FFFF)/10.0, unit:"%"]]} ]
+               13:{ x -> return [[name:"temperature", value:Float.parseFloat(convertTemperatureIfNeeded((float)(x&0x0000FFFF)/10.0,"c",1)), unit:"°${location.temperatureScale}"],   [name:"humidity", value:(float)((x>>16)&0x0000FFFF)/10.0, unit:"%"]]} ]
     
     int ndx = data[13]  
     def eventConverter = mapEventConverter[ndx]
@@ -97,7 +98,7 @@ private def parseXiaomiBleAdverstimenteirData(def data)
     
     eventConverter(byteArrayInt(data[16..(16+data[15]-1)])).each
     {
-        if(forceUpdate || Math.abs(device.currentValue(it["name"]) - it["value"]) > 1.0)
+        if(forceUpdate || device.currentValue(it["name"]) == null || Math.abs(device.currentValue(it["name"]) - it["value"]) > 0.5)
         {
             sendEvent(it)
         }
