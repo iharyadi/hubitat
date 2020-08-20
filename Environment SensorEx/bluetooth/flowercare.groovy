@@ -140,7 +140,6 @@ private static String bytesToHex(def bytes) {
 def  parse(def data) { 
     if(data[0] == ADRVERTISEMENT_FRAME())
     {
-        updatePresent()
         def dataMap = parseBleAdverstiment(data)
     
         if(!dataMap["eirData"][22])
@@ -170,6 +169,8 @@ def  parse(def data) {
             }
         }
         
+        updatePresent()
+
         state.lastData = dataMap["eirData"][22]
         return parseXiaomiBleAdverstimenteirData(dataMap["eirData"][22])
     }
