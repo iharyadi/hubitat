@@ -122,12 +122,12 @@ def handleReadResponse(def data)
         
         sendEvent([name:"humidity",unit:"%",value:(sensorData[1]*0.5)])
         sendEvent([name:"illuminance",unit:"lux",value:sensorData[2]])
-        sendEvent([name:"radon",unit:"Bq/m3",value:byteArrayInt(sensorData[4..5])])
-        sendEvent([name:"radon-lt",unit:"Bq/m3",value:byteArrayInt(sensorData[6..7])])
-        sendEvent([name:"temperature",unit:"°${location.temperatureScale}",value:convertTemperatureIfNeeded(byteArrayInt(sensorData[8..9])*0.01,"C",1)])
-        sendEvent([name:"pressure",unit:"mBar",value:byteArrayInt(sensorData[10..11])*0.02])
-        sendEvent([name:"carbonDioxide",unit:"ppm",value:byteArrayInt(sensorData[12..13])])
-        sendEvent([name:"voc",unit:"ppb",value:byteArrayInt(sensorData[14..15])])
+        sendEvent([name:"radon",unit:"Bq/m3",value:byteArrayInt(sensorData[5..4])])
+        sendEvent([name:"radon-lt",unit:"Bq/m3",value:byteArrayInt(sensorData[7..6])])
+        sendEvent([name:"temperature",unit:"°${location.temperatureScale}",value:convertTemperatureIfNeeded(byteArrayInt(sensorData[9..8])*0.01,"C",1)])
+        sendEvent([name:"pressure",unit:"mBar",value:byteArrayInt(sensorData[11..10])*0.02])
+        sendEvent([name:"carbonDioxide",unit:"ppm",value:byteArrayInt(sensorData[13..12])])
+        sendEvent([name:"voc",unit:"ppb",value:byteArrayInt(sensorData[15..14])])
       
         /*
         d[  'waves'] = data[ 3]      # Seems to count recent waves.
@@ -157,7 +157,27 @@ def handleSubscibeNotifyResponse(def data)
 def parse(def data) { 
     
     if(data[0] == ADRVERTISEMENT_FRAME())
-    {
+    {    
+        //check whether poll was just performed less than 5 min ago. 
+        boolean allowRead = true
+        if(device.lastActivity)
+        {
+            use(groovy.time.TimeCategory)
+            {
+                def currentDate = new Date()
+                def duration = currentDate - device.lastActivity
+                allowRead = duration.days > 0 || duration.hours > 0 || duration.minutes >= 5 
+            }
+        }
+            
+        if(state.connection_retry >= 3 && allowRead)
+        {
+            // this should not be called
+            //if we are in the middle of polling
+            //or we just poll less than 5 min ago
+            readAirthingsSensors()
+        }
+        
         updatePresent()
     }
     if(data[0] == READ_ATTRIBUTE_FRAME())
@@ -202,18 +222,17 @@ private static  byte[] byteToByteArray(final byte data) {
 
 def checkActivity()
 {    
-    boolean runInit = false
+    boolean runInit = true
     
-    if(!device.lastActivity)
+    if(device.lastActivity)
     {
-        return    
-    }
     
-    use(groovy.time.TimeCategory)
-    {
-        def currentDate = new Date()
-        def duration = currentDate - device.lastActivity
-        runInit = duration.days > 0 || duration.hours > 0 || duration.minutes >= 5 
+        use(groovy.time.TimeCategory)
+        {
+            def currentDate = new Date()
+            def duration = currentDate - device.lastActivity
+            runInit = duration.days > 0 || duration.hours > 0 || duration.minutes >= 5 
+        }
     }
     
     if(runInit)
@@ -249,6 +268,7 @@ def readAirthingsSensors()
 }
 
 def initialize() { 
+    state.connection_retry = 3
     unschedule()
     runEvery5Minutes(checkActivity)
     runEvery5Minutes(readAirthingsSensors)
@@ -268,7 +288,7 @@ private static String bytesToHex(def bytes) {
 
 private def sendBTFilterInitialization()
 {
-    sendBTFilter((byte)9)
+    sendBTFilter((byte)0xFF)
 }
 
 private def sendBTClearFilter()
