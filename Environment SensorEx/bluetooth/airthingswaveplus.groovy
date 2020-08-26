@@ -200,6 +200,12 @@ private static  byte[] byteToByteArray(final byte data) {
     return temp;
 }
 
+private String getBTMac()
+{
+    def DNI = device.deviceNetworkId.split("-",2)
+    return DNI[0]
+}
+
 def checkActivity()
 {    
     boolean runInit = false
@@ -323,7 +329,7 @@ private def sendBTWriteAttribute(String srv, String chr, String val)
     byte[] page = byteToByteArray((byte)2)
     byte[] address = getBTMac().decodeHex()
 
-    byte[] service = svc.decodeHex()
+    byte[] service = srv.decodeHex()
     byte[] characteristic = chr.decodeHex()
     byte[] value  = val.decodeHex()
     byte[] valuelen = byteToByteArray((byte)value.size())
@@ -351,7 +357,7 @@ private def sendBTReadAttribute(String srv, String chr, byte size)
     byte[] page = byteToByteArray((byte)2)
     byte[] address = getBTMac().decodeHex()
 
-    byte[] service = svc.decodeHex()
+    byte[] service = srv.decodeHex()
     byte[] characteristic = chr.decodeHex()
     byte[] valuelen = byteToByteArray(size)
 
