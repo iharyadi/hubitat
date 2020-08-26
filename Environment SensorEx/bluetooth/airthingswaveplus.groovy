@@ -271,7 +271,6 @@ def initialize() {
     state.connection_retry = 3
     unschedule()
     runEvery5Minutes(checkActivity)
-    runEvery5Minutes(readAirthingsSensors)
     sendBTFilterInitialization()
 }
 
