@@ -7,6 +7,26 @@ metadata {
     }   
 }
 
+private int DEVICE_COMMAND()
+{
+    return 0
+}
+
+private int MANAGER_COMMAND()
+{
+    return 1
+}
+
+private int BLUETOOTH_DEVICE()
+{
+    return 2    
+}
+
+private int USB_DEVICE()
+{
+    return 3    
+}
+
 def  parse(def origData) {     
     def childDevice = getChildDevice( "${device.deviceNetworkId}-LanDevice" )
     if(!childDevice)
@@ -24,7 +44,18 @@ def  parse(def origData) {
         log.error e
         log.error "data ${origData}"
     }
-    return childDevice.parse([data].flatten().findAll { it != null });
+    
+    def flatData = [data].flatten().findAll { it != null }
+       
+    if(Integer.parseInt(flatData[0]) == DEVICE_COMMAND())
+    {
+        if(Integer.parseInt(flatData[1]) == BLUETOOTH_DEVICE())
+        {
+            return childDevice.parse(flatData);
+        }
+    }
+    
+    return null
 }
 
 def sendToSerialdevice(byte [] serialCmd)

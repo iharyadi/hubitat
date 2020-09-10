@@ -246,9 +246,30 @@ private def handleAdvertismentData(def data)
             return childDevice.configure_child()
        }
     }
-    else if(data["eirData"][9])
+    else if(data["eirData"][9] || data["eirData"][8] || data["eirData"][6] )
     {
-        String DTH = new String((byte[])data["eirData"][9])
+        if(data["eirData"][6])
+        {
+            String uuid = ((byte[]) data["eirData"][6][-1..0]).encodeHex()
+            if(uuid.equalsIgnoreCase("b42e1c08ade711e489d3123b93f75cba"))
+            {
+                DTH = "Airthings Wave+"
+            }
+        }
+        else
+        {
+            String DTH = new String((byte[])data["eirData"][9])
+            if(!DTH || DTH.isEmpty())
+            {
+                DTH = new String((byte[])data["eirData"][8])
+            }
+        }
+        
+        if(!DTH || DTH.isEmpty())
+        {
+            return null    
+        }
+        
         String[] arrOfStr = DTH.split("-", 2);
         DTH = arrOfStr[0]
         log.info "DTH ${DTH}  eridata ${data["eirData"]}"
@@ -374,12 +395,26 @@ def stopFindNewBTDevice()
     sendBTFilter((byte)0x00)
 }
 
+private List<Integer> searchArray() {
+    return [9, 8, 6]
+}
+
+def findNewBTDeviceLoop() {
+    def index = state.searching++ % searchArray().size()
+    sendBTFilter((byte)searchArray()[index])
+    if (state.searching < 12) {
+        runIn(5,findNewBTDeviceLoop)
+    } else {
+        runIn(5,stopFindNewBTDevice)
+    }
+}
+
 def findNewBTDevice()
 {   
-    runIn(60,stopFindNewBTDevice)
+    state.searching = 0
     sendEvent(name:"lastDevFound", value:" ")
-    sendBTFilter((byte)0x09)
     state.discovering = true
+    findNewBTDeviceLoop()
 }
 
 def findNewBTBeacon()
