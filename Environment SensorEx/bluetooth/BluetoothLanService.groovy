@@ -233,6 +233,27 @@ private def updateToken(def device)
     [callback: updateTokenHandler,timeout:5])
 }
 
+def invokeChildParse(def data)
+{
+    if(data["child"] && data["param"] )
+    {
+        try
+        {
+            def childDevice = getChildDevice(data["child"].toUpperCase())
+            if(!childDevice)
+            {
+                return null
+            }
+            
+            childDevice.parse(data["param"])
+        }
+        catch(e)
+        {
+            log.error "childDevice.parse(body) Error: ${e}"
+        }
+    }
+}
+
 def deviceDataHandler()
 {
     String body = request.body
@@ -242,20 +263,13 @@ def deviceDataHandler()
          return null
     }
 
-    def childDevice = getChildDevice(params.mac.toUpperCase())
-    if(!childDevice)
+    //def childDevice = getChildDevice(params.mac.toUpperCase())
+    if(!params.mac)
     {
         return null;
     }
     
-    try
-    {
-        childDevice.parse(body)
-    }
-    catch(e)
-    {
-        log.error "childDevice.parse(body) Error: ${e}"
-    }
+    runIn(0, invokeChildParse, [data: [child: params.mac, param: body], overwrite: false])
 }
 
 private Integer convertHexToInt(hex) 
