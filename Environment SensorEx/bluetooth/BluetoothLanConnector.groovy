@@ -38,23 +38,22 @@ def  parse(def origData) {
     try
     {
         data = parseJson(origData)
+        def flatData = [data].flatten().findAll { it != null }
+       
+        if(Integer.parseInt(flatData[0]) == DEVICE_COMMAND())
+        {
+            if(Integer.parseInt(flatData[1]) == BLUETOOTH_DEVICE())
+            {
+                return childDevice.parse(flatData);
+            }
+        }    
     }
     catch(Exception e)
     {
         log.error e
         log.error "data ${origData}"
     }
-    
-    def flatData = [data].flatten().findAll { it != null }
-       
-    if(Integer.parseInt(flatData[0]) == DEVICE_COMMAND())
-    {
-        if(Integer.parseInt(flatData[1]) == BLUETOOTH_DEVICE())
-        {
-            return childDevice.parse(flatData);
-        }
-    }
-    
+        
     return null
 }
 
@@ -124,7 +123,7 @@ def sendCommandP(List cmds)
 
 def initialize()
 {
-    def childDevice = parent.getChildDevice( "${device.deviceNetworkId}-LanDevice" )
+    def childDevice = getChildDevice( "${device.deviceNetworkId}-LanDevice" )
     if(!childDevice)
     {
         childDevice = addChildDevice("iharyadi", 
