@@ -131,8 +131,7 @@ private def handlePacketFragmentation(short id, short ndxframe,short totalframe,
     return packet
 }
 
-def  parse(def origData) {   
-    ArrayList<String> data = new ArrayList<String>(origData);
+def  parse(def data) {   
     
     if(!data[0].equals("00"))
     {
@@ -172,6 +171,7 @@ def  parse(def origData) {
         packet.each {
             joinedPacket += String.join("", it)
         }
+        
         return handleChildData(joinedPacket.decodeHex())
     }
                                               
@@ -194,10 +194,11 @@ private def handleAdvertismentData(def data)
 {
     def zigbeeAddress = parent.device.getZigbeeId()
     String DNI = bytesToHex(data["address"].reverse())
-     
+    
+    String DTH = null
     if(data["eirData"][-1])
     {
-        String DTH = null
+        
         if(data["eirData"][-1][0] == 89 && data["eirData"][-1][1] == 0 && data["eirData"][-1][2] == 2)
         {
             DTH = "Beacon"   
@@ -258,10 +259,17 @@ private def handleAdvertismentData(def data)
         }
         else
         {
-            String DTH = new String((byte[])data["eirData"][9])
+            if(data["eirData"][9])
+            {
+                DTH = new String((byte[])data["eirData"][9])
+            }
+            
             if(!DTH || DTH.isEmpty())
             {
-                DTH = new String((byte[])data["eirData"][8])
+                if(data["eirData"][8])
+                {
+                    DTH = new String((byte[])data["eirData"][8])
+                }
             }
         }
         
@@ -329,7 +337,7 @@ private def handleChildData(def data)
             {
                 return null
             }
-        
+                    
             if(data[0] != ADRVERTISEMENT_FRAME())
             {
                 return null;
