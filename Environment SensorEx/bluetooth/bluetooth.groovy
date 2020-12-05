@@ -277,6 +277,11 @@ private def handleAdvertismentData(def data)
         {
             return null    
         }
+
+        if(DTH.matches("^ATC_[0-9A-F]{6,6}\$"))
+        {
+            DTH =  "ATC_Thermometer"
+        }
         
         String[] arrOfStr = DTH.split("-", 2);
         DTH = arrOfStr[0]
