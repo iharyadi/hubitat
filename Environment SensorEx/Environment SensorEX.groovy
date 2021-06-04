@@ -29,8 +29,9 @@ metadata {
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES003", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES004", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES005", deviceJoinName: "Environment Sensor"
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES005", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010, 0500", manufacturer: "KMPCIL", model: "RES006", deviceJoinName: "Environment Sensor"
-
+        fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0400, 0B05, 000F, 000C, 0010, 1001", manufacturer: "KMPCIL", model: "RES007", deviceJoinName: "Environment Sensor"                                          
     }
     
     preferences {
@@ -725,6 +726,11 @@ def parse(String description) {
         return   
     }
     
+    if(parseLQITable(description))
+    {
+       return   
+    }
+    
     Log("DID NOT PARSE MESSAGE : $description")
     
 }
@@ -857,7 +863,8 @@ private def refreshOnBoardSensor()
          "RES002":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID()],
          "RES003":[ILLUMINANCE_CLUSTER_ID()],
          "RES005":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()],
-         "RES006":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()]]
+         "RES006":[TEMPERATURE_CLUSTER_ID(), HUMIDITY_CLUSTER_ID(), PRESSURE_CLUSTER_ID(),ILLUMINANCE_CLUSTER_ID()],
+         "RES007":[ILLUMINANCE_CLUSTER_ID()]]
      
     mapRefresh[model]?.each{
         cmds = cmds + zigbee.readAttribute(it,SENSOR_VALUE_ATTRIBUTE());
@@ -940,7 +947,8 @@ def configure() {
         "RES002":reportBME280Parameters(),
         "RES003":reportTEMT6000Parameters(),
         "RES005":reportBME280Parameters()+reportTEMT6000Parameters(),
-        "RES006":reportBME280Parameters()+reportTEMT6000Parameters()]
+        "RES006":reportBME280Parameters()+reportTEMT6000Parameters(),
+        "RES007":reportTEMT6000Parameters()]
     
     def model = device.getDataValue("model")
     
@@ -1068,8 +1076,8 @@ def updated() {
         state.remove("tempCelcius")
         
         def cmds = updateExpansionSensorSetting()
-        
-        if(device.getDataValue("model") == "RES005")
+       
+        if(device.getDataValue("model") == "RES005" || device.getDataValue("model") == "RES007")
         {
             cmds += updateSerialDevicesSetting()
         }
@@ -1080,4 +1088,67 @@ def updated() {
     else {
         Log("updated(): Ran within last 2 seconds so aborting.")
     }
+}
+
+def parseLQINeighbor(def data)
+{
+    def result = [:]
+    int ndx = 0
+    result["panId"] = String.join("", data[ndx+(8-1)..ndx])
+    ndx = ndx + 8
+    result["address"] = String.join("",data[ndx+(8-1)..ndx])
+    ndx = ndx + 8
+    result["shortAddress"] = String.join("",data[ndx+(2-1)..ndx])
+    ndx = ndx + 2
+    result["flags"] = data[ndx..ndx+(2-1)]
+    ndx = ndx + 2
+    result["depth"] = zigbee.convertHexToInt(data[ndx])
+    ndx = ndx + 1
+    result["LQI"] = zigbee.convertHexToInt(data[ndx])
+    
+    return result
+}
+
+boolean parseLQITable(String description)
+{
+    def descMap = zigbee.parseDescriptionAsMap(description)
+    if(descMap?.clusterInt == 32817)
+    {        
+        int status = zigbee.convertHexToInt(descMap.data[1])
+        int cntNeighbour = zigbee.convertHexToInt(descMap.data[2])
+        int startIndex = zigbee.convertHexToInt(descMap.data[3])
+        int cntIndex = zigbee.convertHexToInt(descMap.data[4])
+        
+        if(status != 0)
+        {
+            return true
+        }
+        
+        int ndx = - 0;
+        for(int i = 0; i < cntIndex; i++)
+        {
+            ndx = 5+(i*22)
+            def entry = parseLQINeighbor(descMap.data[ndx..ndx+(22-1)])
+            Log("Neighbour ${entry}")
+        }
+        
+        if(startIndex + cntIndex < cntNeighbour)
+        {
+            getLQITable(cntIndex)
+        }
+        
+        return true
+    }
+    
+    return false
+}
+
+def getLQITable()
+{
+    getLQITable(0)
+}
+
+def getLQITable(Integer index)
+{
+    return ["he raw ${device.deviceNetworkId} 0 0 0x0031 {00 ${zigbee.convertToHexString(index,2)}} {0x0000}"]
 }
