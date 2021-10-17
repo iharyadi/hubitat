@@ -3,6 +3,9 @@ import hubitat.zigbee.clusters.iaszone.ZoneStatus
 
 metadata {
     definition (name: "Environment Sensor EX", namespace: "iharyadi", author: "iharyadi", ocfDeviceType: "oic.r.temperature") {
+        
+        singleThreaded: true
+        
         capability "Configuration"
         capability "Refresh"
         capability "Battery"
@@ -22,6 +25,9 @@ metadata {
         attribute "BinaryInput", "BOOLEAN"
         attribute "AnalogInput", "number"
         attribute "relativePressure", "number"
+        
+        command "createSerialDeviceChildWithLabel"
+        command "bindSerialDevices"
         
         fingerprint profileId: "0104", inClusters: "0000, 0001, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
         fingerprint profileId: "0104", inClusters: "0000, 0003, 0006, 0402, 0403, 0405, 0400, 0B05, 000F, 000C, 0010,1001", manufacturer: "KMPCIL", model: "RES001", deviceJoinName: "Environment Sensor"
@@ -509,6 +515,16 @@ private def reflectToChild(String childtype, String description)
 
 private def reflectToSerialChild(def data)
 {
+    if(!data)
+    {
+        return;   
+    }
+    
+    if(data.size() < 2)
+    {
+        return;   
+    }
+    
     def zigbeeAddress = device.getZigbeeId()
     
     Integer page = zigbee.convertHexToInt(data[1])
@@ -528,6 +544,7 @@ private def reflectToSerialChild(def data)
     
     childDevice.sendEvent(childEvent)  
 }
+
 
 private def createBattEvent(int val)
 {    
@@ -1045,6 +1062,13 @@ def createSerialDeviceChildWithLabel(String childDH, Integer page, String label)
     }
     
     return childDevice?.configure_child()
+}
+
+def bindSerialDevices()
+{
+    def cmds = []
+    cmds += "zdo bind 0x${device.deviceNetworkId} 0x${device.endpointId} 0x01 0x${Integer.toHexString(SERIAL_TUNNEL_CLUSTER_ID())} {${device.zigbeeId}} {}"
+    sendHubCommand(new hubitat.device.HubMultiAction(delayBetween(cmds,1500), hubitat.device.Protocol.ZIGBEE))
 }
 
 private def updateSerialDevicesSetting()
