@@ -497,11 +497,17 @@ private def reflectToChild(String childtype, String description)
         return    
     }
     
-    def childDevice = getChildDevice("${device.deviceNetworkId}-$childtype")
+    
+    
+    def childDevice = getChildDevice("${device.getZigbeeId()}-$childtype")
     
     if(!childDevice)
     {
-        return    
+        childDevice = getChildDevice("${device.deviceNetworkId}-$childtype")
+        if(!childDevice)
+        {
+            return
+        }
     }
         
     def childEvent = childDevice.parse(description)
@@ -993,12 +999,13 @@ private def createChild(String childDH, String component)
         return null
     }
     
-    def childDevice = getChildDevice("${device.deviceNetworkId}-$childDH")
+    def zigbeeAddress = device.getZigbeeId()
+    def childDevice = getChildDevice("$zigbeeAddress-$childDH")
     if(!childDevice)
     {
         childDevice = addChildDevice("iharyadi", 
                        "$childDH", 
-                       "${device.deviceNetworkId}-$childDH",
+                       "$zigbeeAddress-$childDH",
                        [label: "${device.displayName} $childDH",
                         isComponent: false, 
                         componentName: component, 
