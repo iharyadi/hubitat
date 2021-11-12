@@ -350,9 +350,7 @@ private def createTempertureEvent(float temp)
 {
     def result = [:]
     result.name = "temperature"
-    result.value = temperature
     result.unit = "°${location.temperatureScale}"
-    
     
     result.value = convertTemperatureIfNeeded(temp,"c",1) 
     result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
