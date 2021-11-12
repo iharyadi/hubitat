@@ -1,7 +1,11 @@
+import groovy.transform.Field
+@Field static HashMap mapBeacon = [:]
+
 metadata {
     definition (name: "ATC_Thermometer", namespace: "iharyadi", author: "iharyadi") {
         capability "TemperatureMeasurement"
         capability "RelativeHumidityMeasurement"
+        capability "ContactSensor"
         capability "SignalStrength"
         capability "Battery"
         capability "PresenceSensor"
@@ -71,40 +75,43 @@ private def parseBleAdverstimentEIRData(byte[] data)
 }
 
 private def parseBeaconData(def eirMap)
-{
-    
+{   
     if(eirMap[0x16] == null)
     {
         return null;   
     }
     
-    if(eirMap[0x16].size != 15)
+    if(eirMap[0x16].size != 15 && eirMap[0x16].size != 17)
     {
         return null;
     }
        
     byte [] data = eirMap[0x16]
-    int temphumiditydata = byteArrayInt(data[3..5])
-    
     def beaconData = [:]
-    beaconData["temperature"] = (float)byteArrayInt(data[8..9])/10
-    beaconData["humidity"] = data[10]
-    beaconData["battery"] = data[11]
-    beaconData["batteryMV"] = byteArrayInt(data[12..13])
+    
+    if(eirMap[0x16].size == 15)
+    {
+        beaconData["temperature"] = (float)byteArrayInt(data[8..9])/10
+        beaconData["humidity"] = data[10]
+        beaconData["battery"] = data[11]
+        beaconData["batteryMV"] = byteArrayInt(data[12..13])
+        beaconData["counter"] =  data[14]
+    }
+    else if(eirMap[0x16].size == 17)
+    {
+        beaconData["temperature"] = (float)byteArrayInt(data[9..8])/100
+        beaconData["humidity"] = (float)byteArrayInt(data[11..10])/100
+        beaconData["batteryMV"] = byteArrayInt(data[13..12])
+        beaconData["battery"] = data[14]
+        beaconData["counter"] =  data[15]
+        beaconData["flag"] =  data[16]
+    }
+    
     return beaconData
 }
 
 private def parseBleAdverstiment(byte[] data)
 {
-    
-    /*
-    uint8_t frameType;
-    uint8_t addressType;
-    uint8_t address[6];
-    uint8_t advertisementTypeMask;
-    uint8_t eirDataLength;
-    uint8_t eirData[31 * 2];
-    int8_t  rssi;*/
     
     if(data[0] != ADRVERTISEMENT_FRAME())
     {
@@ -185,6 +192,22 @@ private def handleBattery(def beaconData)
     sendEvent(result)
 }
 
+private def handlegpio(def beaconData)
+{
+    def result = [:]
+    result.name = "contact"
+    
+    def conStatus = "unknown" 
+    if(beaconData["flag"] != null)
+    {
+        conStatus  =  beaconData["flag"] & 0x01 ? "open":"closed"
+    }
+    result.value = conStatus
+    result.descriptionText = "${device.displayName} ${result.name} is ${result.value} ${result.unit}"
+    
+    sendEvent(result)
+}
+
 def  parse(def data) { 
     
     if(data[0] == ADRVERTISEMENT_FRAME())
@@ -200,10 +223,12 @@ def  parse(def data) {
             return null
         }
     
-        if(state.beaconData && 
-           Math.abs(state.beaconData["temperature"] - beaconData["temperature"]) < 0.5 && 
-           Math.abs(state.beaconData["humidity"] -  beaconData["humidity"]) < 0.5  &&
-           state.beaconData["battery"] == beaconData["battery"])
+        def deviceBeaconData = mapBeacon[device.deviceNetworkId]
+        if(deviceBeaconData && 
+           Math.abs(deviceBeaconData["temperature"] - beaconData["temperature"]) < 0.5 && 
+           Math.abs(deviceBeaconData["humidity"] -  beaconData["humidity"]) < 0.5  &&
+           deviceBeaconData["battery"] == beaconData["battery"] &&
+           (beaconData["flag"] == null || deviceBeaconData["flag"] == beaconData["flag"]))
         {
             boolean forceUpdate = true
             if(device.lastActivity)
@@ -222,12 +247,13 @@ def  parse(def data) {
             }
         }
     
-        state.beaconData = beaconData
+        mapBeacon[device.deviceNetworkId] = beaconData
     
         handleRssi(dataMap)
         handleTemperature(beaconData)
         handleHumidity(beaconData)
-        handleBattery(beaconData)   
+        handleBattery(beaconData)  
+        handlegpio(beaconData)
     }
     else if (data[0] == WRITE_ATTRIBUTE_FRAME())
     {
@@ -375,7 +401,10 @@ def updateNotPresent()
 
 def updatePresent()
 {
-    sendEvent([name:"presence",value:"present"])
+    if(device.currentValue("presence") != "present")
+    {
+        sendEvent([name:"presence",value:"present"])
+    }
     runIn(120,updateNotPresent)
 }
 
@@ -416,6 +445,7 @@ def installed()
 
 void uninstalled()
 {
+    mapBeacon.remove(device.deviceNetworkId)
     sendBTClearFilter()
     unschedule()
 }

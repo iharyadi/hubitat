@@ -199,9 +199,7 @@ def findAllBluetoothChildren()
     def btChildren = children.findAll  {
         String[] res = it.properties["data"]["componentName"].split("-",2);
         return res[0] == "Bluetooth"
-    }
-    
-    log.info "child info ${btChildren}" 
+    } 
 }
 
 private def handleAdvertismentData(def data)
