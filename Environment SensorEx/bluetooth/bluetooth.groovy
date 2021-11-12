@@ -1,9 +1,9 @@
 import groovy.json.JsonSlurper
 import groovy.transform.Field
-@Field static java.util.concurrent.Semaphore mutex = new java.util.concurrent.Semaphore(1)
-@Field static volatile Integer current_id = 0
-@Field static volatile byte [] fragmentReceived = [-1,-1,-1]
-@Field static volatile String [][] fragment = [[],[],[]]
+    
+@Field static HashMap current_id = []
+@Field static HashMap fragmentReceived = []
+@Field static HashMap fragment = []
  
 metadata {
     definition (name: "Bluetooth", namespace: "iharyadi", author: "iharyadi") {
@@ -14,6 +14,7 @@ metadata {
     command "findNewBTDevice"
     command "findNewBTBeacon"
     command "stopFindNewBTDevice"
+    singleThreaded: true
 }
 
 private short ADRVERTISEMENT_FRAME()
@@ -78,7 +79,7 @@ private boolean isPacketComplete(short totalframe)
     int res = 0;
     for (int i = 0; i< totalframe; i++)
     {
-        res += fragmentReceived[i]
+        res += fragmentReceived[device.deviceNetworkId][i]
     }
     
     return res == 0
@@ -89,7 +90,7 @@ private def mergeFrame(short totalframe)
     def res = []
     for (int i = 0; i< totalframe; i++)
     {
-        res += fragment[i]
+        res += fragment[device.deviceNetworkId][i]
     }
     
     return res
@@ -97,19 +98,33 @@ private def mergeFrame(short totalframe)
 
 private def handlePacketFragmentation(short id, short ndxframe,short totalframe, def data)
 { 
+    if(current_id[device.deviceNetworkId] == NULL)
+    {
+        current_id[device.deviceNetworkId] = 0
+    }
+    
+    if(fragmentReceived[device.deviceNetworkId] == NULL)
+    {
+        fragmentReceived[device.deviceNetworkId] = [-1,-1,-1]
+    }
+    
+    if(fragment[device.deviceNetworkId] == NULL)
+    {
+        fragment[device.deviceNetworkId] = [[],[],[]]
+    }
+    
     def packet = null;
-    mutex.acquire()
     try{
     
-        if(current_id != id)
+        if(current_id[device.deviceNetworkId] != id)
         {
-            current_id = id
-            fragmentReceived = [-1,-1,-1]
-            fragment = [[],[],[]]
+            current_id[device.deviceNetworkId] = id
+            fragmentReceived[device.deviceNetworkId] = [-1,-1,-1]
+            fragment[device.deviceNetworkId] = [[],[],[]]
             
         }
-        fragmentReceived[ndxframe] = 0
-        fragment[ndxframe]= data[5..-1]
+        fragmentReceived[device.deviceNetworkId][ndxframe] = 0
+        fragment[device.deviceNetworkId][ndxframe]= data[5..-1]
         
         if(isPacketComplete(totalframe))
         {
@@ -126,7 +141,6 @@ private def handlePacketFragmentation(short id, short ndxframe,short totalframe,
         log.error "ndxframe: ${ndxframe}"
         log.error "data: ${data}"
     }
-    mutex.release()
     
     return packet
 }
@@ -185,9 +199,7 @@ def findAllBluetoothChildren()
     def btChildren = children.findAll  {
         String[] res = it.properties["data"]["componentName"].split("-",2);
         return res[0] == "Bluetooth"
-    }
-    
-    log.info "child info ${btChildren}" 
+    } 
 }
 
 private def handleAdvertismentData(def data)
@@ -198,8 +210,15 @@ private def handleAdvertismentData(def data)
     String DTH = null
     if(data["eirData"][-1])
     {
-        
-        if(data["eirData"][-1][0] == 89 && data["eirData"][-1][1] == 0 && data["eirData"][-1][2] == 2)
+        if(data["eirData"][-1][0] == -1 && data["eirData"][-1][1] == -1 && data["eirData"][-1][2] == 2)
+        {
+            String uuid = ((byte[]) data["eirData"][-1][4..19]).encodeHex()            
+            if(uuid.toUpperCase() == "D0A45337897B44F8BB258CD88C47C195")
+            {
+                DTH = "KMPCILRTD" 
+            }
+        }
+        else if(data["eirData"][-1][0] == 89 && data["eirData"][-1][1] == 0 && data["eirData"][-1][2] == 2)
         {
             DTH = "Beacon"   
         }
@@ -277,7 +296,7 @@ private def handleAdvertismentData(def data)
         {
             return null    
         }
-
+        
         if(DTH.matches("^ATC_[0-9A-F]{6,6}\$"))
         {
             DTH =  "ATC_Thermometer"
@@ -432,7 +451,7 @@ def findNewBTDevice()
 
 def findNewBTBeacon()
 {   
-    runIn(60,stopFindNewBTDevice)
+    runIn(180,stopFindNewBTDevice)
     sendEvent(name:"lastDevFound", value:" ")
     sendBTFilter((byte)0xFF)
     state.discovering = true
@@ -442,4 +461,22 @@ def configure_child() {
 }
 
 def installed() {
+}
+
+def uninstalled()
+{
+    if(current_id[device.deviceNetworkId] != NULL)
+    {
+        current_id.remove(device.deviceNetworkId)
+    }
+    
+    if(fragmentReceived[device.deviceNetworkId] != NULL)
+    {
+        fragmentReceived.remove(device.deviceNetworkId)
+    }
+    
+    if(fragment[device.deviceNetworkId] != NULL)
+    {
+        fragment.remove(device.deviceNetworkId)
+    }   
 }
