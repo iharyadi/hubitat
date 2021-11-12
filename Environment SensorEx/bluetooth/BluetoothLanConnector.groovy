@@ -1,8 +1,11 @@
 import groovy.transform.Field
-@Field static volatile List commandQueue = []
-@Field static volatile java.util.concurrent.Semaphore jmutex = new java.util.concurrent.Semaphore(1)
+
+@Field static HashMap jmutex = [:]
+@Field static HashMap commandQueue = [:]
+
 metadata {
     definition (name: "BluetoothLanConnector", namespace: "iharyadi", author: "iharyadi") {
+        singleThreaded: true
         capability "Sensor"
     }   
 }
@@ -83,22 +86,41 @@ def sendCommandP()
 
 def sendCommandP(List cmds)
 {    
-    jmutex.acquire()
+    if(commandQueue[device.deviceNetworkId] == null)
+    {
+       commandQueue[device.deviceNetworkId] = [] 
+    }
+    
+    def deviceCmdQueue = commandQueue[device.deviceNetworkId]
+    
     def it = null
+    
+    if(jmutex[device.deviceNetworkId] == null)
+    {
+        jmutex[device.deviceNetworkId] = new java.util.concurrent.Semaphore(1)
+    }
+    
+    def deviceMutext = jmutex[device.deviceNetworkId]
+        
+    deviceMutext.acquire()
+    
     try
     {
-        commandQueue += cmds
+        
+        
+        deviceCmdQueue += cmds
     
-        if(!commandQueue.isEmpty())
+        if(!deviceCmdQueue.isEmpty())
         {
-            it = commandQueue.remove(0) 
-        }          
+            it = deviceCmdQueue.remove(0) 
+        }  
     }
     catch(e)
     {
         log.error "Error: ${e}"
     }
-    jmutex.release()
+    
+    deviceMutext.release()
     
     if(!it)
     {
@@ -134,6 +156,16 @@ def initialize()
             componentName: "Bluetooth-${device.deviceNetworkId}", 
             componentLabel: "Bluetooth-${device.deviceNetworkId}"])
     }
+    
+    if(commandQueue[device.deviceNetworkId] == null)
+    {
+       commandQueue[device.deviceNetworkId] = [] 
+    }
+    
+    if(jmutex[device.deviceNetworkId] == null)
+    {
+        jmutex[device.deviceNetworkId] = new java.util.concurrent.Semaphore(1)
+    }
 }
 
 def installed() {
@@ -142,4 +174,9 @@ def installed() {
 
 def configure() {
     initialize();
+}
+
+def uninstalled() {
+    unschedule()
+    commandQueue.remove(device.deviceNetworkId)
 }
