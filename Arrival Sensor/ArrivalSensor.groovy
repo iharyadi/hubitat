@@ -200,7 +200,7 @@ private handleTemperature(temp) {
     def eventMap = [:]
     eventMap.name = "temperature"
     eventMap.unit = "°${location.temperatureScale}"
-    eventMap.value = convertTemperatureIfNeeded((float)temp/100.0+tempAdjust,"c",1) 
+    eventMap.value = convertTemperatureIfNeeded((float)temp/100.0+tempAdjust,"c",0) 
     eventMap.descriptionText = "${device.displayName} ${eventMap.name} is ${eventMap.value} ${eventMap.unit}"
     sendEvent(eventMap)
 }
