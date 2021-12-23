@@ -5,6 +5,8 @@ import groovy.transform.Field
 
 metadata {
     definition (name: "Arrival Sensor HA", namespace: "iharyadi", author: "iharyadi") {
+        singleThreaded: true
+        
         capability "Tone"
         capability "Actuator"
         capability "Presence Sensor"
@@ -57,6 +59,14 @@ def updated() {
     stopTimer()
     startTimer()
     refresh()
+    
+    if(!motionEnabled)
+    {
+       device.deleteCurrentState("motion") 
+       return   
+    }
+    
+    sendMotionEvent("inactive")
 }
 
 void uninstalled()
@@ -65,11 +75,16 @@ void uninstalled()
 }
 
 def installed() {
+    sendShockEvent("clear")
+    if(!motionEnabled)
+    {
+       return   
+    }
+    sendMotionEvent("inactive")
 }
 
 def configure() {
     def cmds = []
-    cmds += "delay 5000"
     cmds += zigbee.readAttribute(0x0001, 0x0020) + zigbee.configureReporting(0x0001,0x0020, DataType.UINT8,   0, 10,1)
     cmds += zigbee.readAttribute(0x000F, 0x0055) + zigbee.configureReporting(0x000F,0x0055, DataType.BOOLEAN, 0, 300,1)
     cmds += zigbee.readAttribute(0x0402, 0x0000) + zigbee.configureReporting(0x0402,0x0000, DataType.INT16,   0, 600,100)
@@ -142,16 +157,38 @@ private boolean IsMotionDetected(int value)
     return (value & 0x04) == 0x04
 }
 
+def sendShockEvent(newValue)
+{
+    eventMap = [
+        name: "shock",
+        value: newValue,
+        descriptionText: "${getLinkText(device)} vibriation is ${newValue}",
+        translatable: true]
+    sendEvent(eventMap)
+}
+
+def sendMotionEvent(newValue)
+{   
+    
+    eventMap = [
+        name: "motion",
+        value:  newValue,
+        descriptionText: "${getLinkText(device)} human presence is ${newValue == "active"? "" : "not" } detected",
+        translatable: true]
+    sendEvent(eventMap)
+}
+
 private handleBinaryInput(binaryValue) {
     
     def value = "battery"
+    def linkText = getLinkText(device)
+    def descriptionText = "${linkText} is powered down"
     if(IsDCPower(binaryValue))
     {
         value =  "dc"
+        descriptionText = "${linkText} is powered up"
     }
         
-    def linkText = getLinkText(device)
-    descriptionText = "${linkText} power source is ${value}"
     def eventMap = [
     name: 'powerSource',
           value: value,
@@ -160,40 +197,36 @@ private handleBinaryInput(binaryValue) {
     ]
     sendEvent(eventMap)
     
-    value = "clear"
     if(IsShockDetected(binaryValue))
     {
-        value =  "detected"
+        unschedule(sendShockEvent)
+        sendShockEvent("detected")
     }
-    
-    descriptionText = "${linkText} vibriation/shock is ${value}"
-    eventMap = [
-    name: 'shock',
-          value: value,
-          descriptionText: descriptionText,
-          translatable: true
-    ]
-    sendEvent(eventMap)
+    else
+    {
+        if(device.currentState("shock")?.value == "detected")
+        {
+            runIn(120, sendShockEvent, [data: "clear"])
+        }
+    }
     
     if(!motionEnabled)
     {
-       return null   
+       return   
     }
     
-    value = "inactive"
     if(IsMotionDetected(binaryValue))
     {
-        value =  "active"
+        unschedule(sendMotionEvent)
+        sendMotionEvent("active")
     }
-    
-    descriptionText = "${linkText} motion is ${value}"
-    eventMap = [
-    name: 'motion',
-          value: value,
-          descriptionText: descriptionText,
-          translatable: true
-    ]
-    sendEvent(eventMap)
+    else
+    {
+        if(device.currentState("motion")?.value == "active")
+        {
+            runIn(120, sendMotionEvent, [data: "inactive"])
+        }
+    }
 }
 
 private handleTemperature(temp) {
