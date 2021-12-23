@@ -162,7 +162,7 @@ def sendShockEvent(newValue)
     eventMap = [
         name: "shock",
         value: newValue,
-        descriptionText: "${getLinkText(device)} vibriation is ${newValue}",
+        descriptionText: "${getLinkText(device)} vibration is ${newValue}",
         translatable: true]
     sendEvent(eventMap)
 }
