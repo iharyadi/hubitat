@@ -1,7 +1,7 @@
 import groovy.json.JsonOutput
 import groovy.transform.Field
     
-@Field static HashMap lastCheckin = []
+@Field static HashMap data = [:]
 
 metadata {
     definition (name: "Arrival Sensor HA", namespace: "iharyadi", author: "iharyadi") {
@@ -71,7 +71,8 @@ def updated() {
 
 void uninstalled()
 {
-    lastCheckin.remove(device.deviceNetworkId)
+    unschedule()
+    data.remove(device.deviceNetworkId)
 }
 
 def installed() {
@@ -105,7 +106,11 @@ def beep() {
 
 def parse(String description) { 
     Log("parse ${zigbee.parseDescriptionAsMap(description)}")
-    lastCheckin[device.deviceNetworkId] = now()
+    if(data[device.deviceNetworkId] == null)
+    {
+        data[device.deviceNetworkId] = [:]
+    }
+    data[device.deviceNetworkId]["lastCheckin"] = now()
     handlePresenceEvent(true)
 
     if (description?.startsWith('read attr -')) {
@@ -142,14 +147,34 @@ private handleReportAttributeMessage(String description) {
     }
 }
 
+private boolean IsBinaryValueChanged(def newvalue, def previousValue, def bitMask)
+{
+    return (newvalue ^ previousValue) & bitMask
+}
+
 private boolean IsDCPower(int value)
 {
     return (value & 0x01) == 0x01
 }
 
+private boolean IsDCPowerChanged(def newvalue, def previousValue)
+{
+    return IsBinaryValueChanged(newvalue,previousValue, 0x01)
+}
+
 private boolean IsShockDetected(int value)
 {
     return (value & 0x02) == 0x02
+}
+
+private boolean IsShockChanged(def newvalue, def previousValue)
+{
+    return IsBinaryValueChanged(newvalue,previousValue, 0x02)
+}
+
+private boolean IsMotionChanged(def newvalue, def previousValue)
+{
+    return IsBinaryValueChanged(newvalue,previousValue, 0x04)
 }
 
 private boolean IsMotionDetected(int value)
@@ -169,7 +194,6 @@ def sendShockEvent(newValue)
 
 def sendMotionEvent(newValue)
 {   
-    
     eventMap = [
         name: "motion",
         value:  newValue,
@@ -178,7 +202,12 @@ def sendMotionEvent(newValue)
     sendEvent(eventMap)
 }
 
-private handleBinaryInput(binaryValue) {
+private handleDCPower(binaryValue, prevValue)
+{
+    if(!IsDCPowerChanged(binaryValue,prevValue))
+    {
+        return
+    }
     
     def value = "battery"
     def linkText = getLinkText(device)
@@ -190,12 +219,20 @@ private handleBinaryInput(binaryValue) {
     }
         
     def eventMap = [
-    name: 'powerSource',
-          value: value,
-          descriptionText: descriptionText,
-          translatable: true
-    ]
+        name: 'powerSource',
+               value: value,
+               descriptionText: descriptionText,
+               translatable: true
+        ]
     sendEvent(eventMap)
+}
+
+private handleShock(binaryValue, prevValue)
+{
+    if(!IsShockChanged(binaryValue,prevValue))
+    {
+        return
+    }
     
     if(IsShockDetected(binaryValue))
     {
@@ -209,10 +246,18 @@ private handleBinaryInput(binaryValue) {
             runIn(120, sendShockEvent, [data: "clear"])
         }
     }
-    
+}
+
+private handleMotion(binaryValue, prevValue)
+{
     if(!motionEnabled)
     {
        return   
+    }
+    
+    if(!IsMotionChanged(binaryValue,prevValue))
+    {
+        return
     }
     
     if(IsMotionDetected(binaryValue))
@@ -227,6 +272,18 @@ private handleBinaryInput(binaryValue) {
             runIn(120, sendMotionEvent, [data: "inactive"])
         }
     }
+}
+
+private handleBinaryInput(binaryValue) {
+    
+    def prevValue = data[device.deviceNetworkId]["binaryValue"] == null ? 0 : data[device.deviceNetworkId]["binaryValue"]
+    data[device.deviceNetworkId]["binaryValue"] = binaryValue
+    
+    handleDCPower(binaryValue,prevValue)
+    
+    handleShock(binaryValue, prevValue) 
+    
+    handleMotion(binaryValue, prevValue)
 }
 
 private handleTemperature(temp) {
@@ -315,12 +372,12 @@ private stopTimer() {
 }
 
 def checkPresenceCallback() {
-    if(!lastCheckin[device.deviceNetworkId])
+    if(data[device.deviceNetworkId] == null)
     {
         return   
     }
     
-    def timeSinceLastCheckin = (now() - lastCheckin[device.deviceNetworkId])
+    def timeSinceLastCheckin = (now() - data[device.deviceNetworkId]["lastCheckin"])
     def checkIntervalImp = checkInterval
     if(device.currentState("powerSource")?.value == "battery")
     {
