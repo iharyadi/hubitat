@@ -56,17 +56,16 @@ private def Log(message) {
 }
 
 def updated() {
-    stopTimer()
-    startTimer()
-    refresh()
-    
-    if(!motionEnabled)
+    if(motionEnabled)
     {
-       device.deleteCurrentState("motion") 
-       return   
+        sendMotionEvent("inactive")
     }
-    
-    sendMotionEvent("inactive")
+    else
+    {
+        device.deleteCurrentState("motion") 
+    }
+
+    refresh()
 }
 
 void uninstalled()
@@ -243,7 +242,7 @@ private handleShock(binaryValue, prevValue)
     {
         if(device.currentState("shock")?.value == "detected")
         {
-            runIn(120, sendShockEvent, [data: "clear"])
+            runIn(90, sendShockEvent, [data: "clear"])
         }
     }
 }
@@ -269,7 +268,7 @@ private handleMotion(binaryValue, prevValue)
     {
         if(device.currentState("motion")?.value == "active")
         {
-            runIn(120, sendMotionEvent, [data: "inactive"])
+            runIn(90, sendMotionEvent, [data: "inactive"])
         }
     }
 }
