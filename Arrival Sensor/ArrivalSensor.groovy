@@ -1,4 +1,3 @@
-import groovy.json.JsonOutput
 import groovy.transform.Field
     
 @Field static HashMap data = [:]
@@ -83,19 +82,36 @@ def installed() {
     sendMotionEvent("inactive")
 }
 
+private int getDelay()
+{
+    int delay = zigbee.STANDARD_DELAY_INT
+    if(device.currentState("powerSource")?.value == "battery")
+    {
+        delay = 8000   
+    }
+    
+    return delay
+}
+
 def configure() {
-    def cmds = []
-    cmds += zigbee.readAttribute(0x0001, 0x0020) + zigbee.configureReporting(0x0001,0x0020, DataType.UINT8,   0, 10,1)
-    cmds += zigbee.readAttribute(0x000F, 0x0055) + zigbee.configureReporting(0x000F,0x0055, DataType.BOOLEAN, 0, 300,1)
-    cmds += zigbee.readAttribute(0x0402, 0x0000) + zigbee.configureReporting(0x0402,0x0000, DataType.INT16,   0, 600,100)
+    int delay = getDelay();
+    
+    def cmds = refresh()
+    
+    cmds += zigbee.configureReporting(0x0001,0x0020, DataType.UINT8,   0, 10,1, [:], delay)
+    cmds += zigbee.configureReporting(0x000F,0x0055, DataType.BOOLEAN, 0, 300,1, [:], delay)
+    cmds += zigbee.configureReporting(0x0402,0x0000, DataType.INT16,   0, 1200,100,[:], delay)
     
     return cmds
 }
 
 def refresh() {
-    def cmds = zigbee.readAttribute(0x0001, 0x0020) + 
-        zigbee.readAttribute(0x000F, 0x0055) + 
-        zigbee.readAttribute(0x0402, 0x0000)
+    
+    int delay = getDelay();
+    
+    def cmds = zigbee.readAttribute(0x0001, 0x0020,[:],delay) + 
+        zigbee.readAttribute(0x000F, 0x0055,[:],delay) + 
+        zigbee.readAttribute(0x0402, 0x0000,[:],delay)
     return cmds
 }
 
@@ -104,23 +120,36 @@ def beep() {
 }
 
 def parse(String description) { 
-    Log("parse ${zigbee.parseDescriptionAsMap(description)}")
+    def descMap = zigbee.parseDescriptionAsMap(description)
+    
+    Log("parse ${descMap}")
+    
     if(data[device.deviceNetworkId] == null)
     {
-        data[device.deviceNetworkId] = [:]
+        data[device.deviceNetworkId] = ["lastCheckin":now()]
     }
     data[device.deviceNetworkId]["lastCheckin"] = now()
     handlePresenceEvent(true)
 
-    if (description?.startsWith('read attr -')) {
-        handleReportAttributeMessage(description)
+    if( descMap.profileId == "0000")
+    {
+        if (descMap.clusterId == "0013")
+        {
+            if(device.currentState("presence")?.value == "present")
+            {
+                Log("device recovered from lost of parent at ${new Date(now()).format("yyyy-MM-dd HH:mm:ss", location.timeZone)}")
+            }
+        }
+    } 
+    else if (description?.startsWith('read attr -')) 
+    {
+        handleReportAttributeMessage(descMap)
     }
 
     return []
 }
 
-private handleReportAttributeMessage(String description) {
-    def descMap = zigbee.parseDescriptionAsMap(description)
+private handleReportAttributeMessage(descMap) {
     if (descMap.clusterInt == 0x0001 && descMap.attrInt == 0x0020) {
         handleBatteryEvent(Integer.parseInt(descMap.value, 16))
     }else 
@@ -306,8 +335,8 @@ private handleBatteryEvent(volts) {
         return null
     }
     
-    def batteryMap = [28:100, 27:100, 26:100, 25:90, 24:90, 23:70,
-                          22:70, 21:50, 20:50, 19:30, 18:30, 17:15, 16:1, 15:0]
+    def batteryMap = [28:100, 27:100, 26:100, 25:90, 24:90, 23:80,
+                          22:70, 21:60, 20:50, 19:40, 18:30, 17:15, 16:1, 15:0]
     def minVolts = 15
     def maxVolts = 28
 
