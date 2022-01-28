@@ -24,10 +24,10 @@ metadata {
     preferences {
         section("Timeouts") {
             input "checkInterval", "enum", title: "Presence timeout (minutes) on dc power", description: "",
-                    defaultValue:"2", options: ["1","2", "3", "5"], displayDuringSetup: false
+                    defaultValue:"1", options: ["1","2", "3", "5"], displayDuringSetup: false
             
             input "checkIntervalBattery", "enum", title: "Presence timeout (minutes) on battery", description: "",
-                    defaultValue:"2", options: ["2", "3", "5", "7", "10", "20"], displayDuringSetup: false
+                    defaultValue:"7", options: ["2", "3", "5", "7", "10", "20"], displayDuringSetup: false
         }
         
         section("Temperature") {
