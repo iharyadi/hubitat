@@ -33,11 +33,15 @@ metadata {
             input "tempAdjust", "decimal", title: "Temperature offset", description: "Adjust temperature in Celsius",
                     defaultValue:"8.55", displayDuringSetup: false
             
-            if( "${location.temperatureScale}".equalsIgnoreCase("F"))
+            def tempUnit = "Celsius"
+            
+            if( !"${location.temperatureScale}".equalsIgnoreCase("F"))
             {
-                input name: "celsiusTemp", defaultValue: "false", type: "bool", title: "Force temperature unit in Celsius", description: "",
-                    displayDuringSetup: false
+                tempUnit = "Fahrenheit"
             }
+            
+            input name: "tempCF", defaultValue: "false", type: "bool", title: "Force temperature unit in ${tempUnit}", description: "",
+                    displayDuringSetup: false
         }
         
         section("Features")
@@ -318,10 +322,19 @@ private handleBinaryInput(binaryValue) {
 private handleTemperature(temp) {
     def eventMap = [:]
     eventMap.name = "temperature"
-    if(celsiusTemp)
+    if(tempCF)
     {
-        eventMap.unit = "°C"
-        eventMap.value = (int) ((float)temp/100.0+tempAdjust).round(0)
+        float tempInCelsius =  ((float)temp/100.0+tempAdjust).round(0)
+        if("${location.temperatureScale}".equalsIgnoreCase("F"))
+        {
+            eventMap.unit = "°C"
+            eventMap.value = (int) tempInCelsius
+        }
+        else if ("${location.temperatureScale}".equalsIgnoreCase("C"))
+        {
+            eventMap.unit = "°F"
+            eventMap.value = (int) ((tempInCelsius*9.0/5.0) + 32.0)
+        }
     }
     else
     {
