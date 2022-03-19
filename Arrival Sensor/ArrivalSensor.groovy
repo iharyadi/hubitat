@@ -6,8 +6,6 @@ metadata {
     definition (name: "Arrival Sensor HA", namespace: "iharyadi", author: "iharyadi") {
         singleThreaded: true
         
-        capability "Tone"
-        capability "Actuator"
         capability "Presence Sensor"
         capability "Sensor"
         capability "Battery"
@@ -19,6 +17,7 @@ metadata {
         capability "Refresh"
 
         fingerprint inClusters: "0000,0001,0003,000F,0020", outClusters: "0003,0019", manufacturer: "SmartThings", model: "tagv4", deviceJoinName: "SmartThings Presence Sensor"
+        fingerprint inClusters: "0000,0001,0003,000F,0020", outClusters: "0003,0019", manufacturer: "KPMCIL", model: "tagv1", deviceJoinName: "Presence Sensor"
     }
 
     preferences {
@@ -33,6 +32,12 @@ metadata {
         section("Temperature") {
             input "tempAdjust", "decimal", title: "Temperature offset", description: "Adjust temperature in Celsius",
                     defaultValue:"8.55", displayDuringSetup: false
+            
+            if( "${location.temperatureScale}".equalsIgnoreCase("F"))
+            {
+                input name: "celsiusTemp", defaultValue: "false", type: "bool", title: "Force temperature unit in Celsius", description: "",
+                    displayDuringSetup: false
+            }
         }
         
         section("Features")
@@ -113,10 +118,6 @@ def refresh() {
         zigbee.readAttribute(0x000F, 0x0055,[:],delay) + 
         zigbee.readAttribute(0x0402, 0x0000,[:],delay)
     return cmds
-}
-
-def beep() {
-    return zigbee.command(0x0003, 0x00, "0500")
 }
 
 def parse(String description) { 
@@ -317,8 +318,16 @@ private handleBinaryInput(binaryValue) {
 private handleTemperature(temp) {
     def eventMap = [:]
     eventMap.name = "temperature"
-    eventMap.unit = "°${location.temperatureScale}"
-    eventMap.value = convertTemperatureIfNeeded((float)temp/100.0+tempAdjust,"c",0) 
+    if(celsiusTemp)
+    {
+        eventMap.unit = "°C"
+        eventMap.value = (int) ((float)temp/100.0+tempAdjust).round(0)
+    }
+    else
+    {
+        eventMap.unit = "°${location.temperatureScale}"
+        eventMap.value = convertTemperatureIfNeeded((float)temp/100.0+tempAdjust,"c",0)
+    }
     eventMap.descriptionText = "${device.displayName} ${eventMap.name} is ${eventMap.value} ${eventMap.unit}"
     sendEvent(eventMap)
 }
@@ -407,7 +416,7 @@ def checkPresenceCallback() {
     
     def timeSinceLastCheckin = (now() - data[device.deviceNetworkId]["lastCheckin"])
     def checkIntervalImp = checkInterval
-    if(device.currentState("powerSource")?.value == "battery")
+    if(device.currentState("powerSource")?.value == "battery" && device.currentState("shock")?.value == "clear"  && device.currentState("motion")?.value == "inactive" )
     {
         checkIntervalImp = checkIntervalBattery
     }
