@@ -66,11 +66,21 @@ private def Log(message) {
 def updated() {
     if(motionEnabled)
     {
-        sendMotionEvent("inactive")
+        if( device.currentState("motion") == null )
+        {
+            if(data[device.deviceNetworkId]["binaryValue"] == null || !IsMotionDetected(data[device.deviceNetworkId]["binaryValue"]))
+            {
+                sendMotionEvent("inactive")
+            }
+            else
+            {
+                sendMotionEvent("active")
+            }
+        }
     }
     else
     {
-        device.deleteCurrentState("motion") 
+       device.deleteCurrentState("motion") 
     }
 
     refresh()
@@ -309,7 +319,7 @@ private handleMotion(binaryValue, prevValue)
 
 private handleBinaryInput(binaryValue) {
     
-    def prevValue = data[device.deviceNetworkId]["binaryValue"] == null ? 0 : data[device.deviceNetworkId]["binaryValue"]
+    def prevValue = data[device.deviceNetworkId]["binaryValue"] == null ? ~binaryValue : data[device.deviceNetworkId]["binaryValue"]
     data[device.deviceNetworkId]["binaryValue"] = binaryValue
     
     handleDCPower(binaryValue,prevValue)
