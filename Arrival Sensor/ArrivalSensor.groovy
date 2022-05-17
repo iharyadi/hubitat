@@ -113,6 +113,13 @@ private int getDelay()
 }
 
 def configure() {
+	
+    def wasPresent = device.currentState("presence")?.value == "present"
+    if(wasPresent)
+    {
+        startTimer()
+    }    
+	
     int delay = getDelay();
     
     def cmds = refresh()
