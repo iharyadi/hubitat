@@ -113,6 +113,12 @@ private int getDelay()
 }
 
 def configure() {
+    def wasPresent = device.currentState("presence")?.value == "present"
+    if(wasPresent)
+    {
+        startTimer()
+    }    
+    
     int delay = getDelay();
     
     def cmds = refresh()
@@ -120,7 +126,7 @@ def configure() {
     cmds += zigbee.configureReporting(0x0001,0x0020, DataType.UINT8,   0, 10,1, [:], delay)
     cmds += zigbee.configureReporting(0x000F,0x0055, DataType.BOOLEAN, 0, 300,1, [:], delay)
     cmds += zigbee.configureReporting(0x0402,0x0000, DataType.INT16,   0, 1200,100,[:], delay)
-    
+        
     return cmds
 }
 
@@ -241,7 +247,7 @@ def sendMotionEvent(newValue)
         name: "motion",
         value:  newValue,
         descriptionText: "${getLinkText(device)} human presence is ${newValue == "active"? "" : "not" } detected",
-        translatable: true]
+        ]
     sendEvent(eventMap)
 }
 
@@ -253,19 +259,15 @@ private handleDCPower(binaryValue, prevValue)
     }
     
     def value = "battery"
-    def linkText = getLinkText(device)
-    def descriptionText = "${linkText} is powered down"
     if(IsDCPower(binaryValue))
     {
         value =  "dc"
-        descriptionText = "${linkText} is powered up"
     }
         
     def eventMap = [
         name: 'powerSource',
-               value: value,
-               descriptionText: descriptionText,
-               translatable: true
+        value: value,
+        descriptionText: "${getLinkText(device)} is powered ${IsDCPower(binaryValue)?"up":"down"}",  
         ]
     sendEvent(eventMap)
 }
@@ -332,6 +334,7 @@ private handleBinaryInput(binaryValue) {
 private handleTemperature(temp) {
     def eventMap = [:]
     eventMap.name = "temperature"
+    
     if(tempCF)
     {
         float tempInCelsius =  ((float)temp/100.0+tempAdjust).round(0)
@@ -351,7 +354,7 @@ private handleTemperature(temp) {
         eventMap.unit = "°${location.temperatureScale}"
         eventMap.value = convertTemperatureIfNeeded((float)temp/100.0+tempAdjust,"c",0)
     }
-    eventMap.descriptionText = "${device.displayName} ${eventMap.name} is ${eventMap.value} ${eventMap.unit}"
+    eventMap.descriptionText = "${getLinkText(device)} temperature is ${eventMap.value} ${eventMap.unit}"
     sendEvent(eventMap)
 }
 
@@ -362,7 +365,6 @@ private handleTemperature(temp) {
  * @param volts Battery voltage in .1V increments
  */
 private handleBatteryEvent(volts) {
-	def descriptionText
     if (volts == 0 || volts == 255) {
         return null
     }
@@ -379,13 +381,10 @@ private handleBatteryEvent(volts) {
         
     def value = batteryMap[volts]
     if (value != null) {
-        def linkText = getLinkText(device)
-        descriptionText = "${linkText} power source is ${value}"
         def eventMap = [
         name: 'battery',
                 value: value,
-                descriptionText: descriptionText,
-                translatable: true
+                descriptionText: "${getLinkText(device)} battery is ${value}",
         ]
         sendEvent(eventMap)
     }
@@ -407,18 +406,10 @@ private handlePresenceEvent(present) {
         return
     }
         
-    def linkText = getLinkText(device)
-    def descriptionText
-    if ( present )
-    	descriptionText = "${linkText} has arrived"
-    else
-    	descriptionText = "${linkText} has left"
     def eventMap = [
         name: "presence",
         value: present ? "present" : "not present",
-        linkText: linkText,
-        descriptionText: descriptionText,
-        translatable: true
+        descriptionText: "${getLinkText(device)} ${present? "has arrived": "has left" }",
     ]
     sendEvent(eventMap)
 }
